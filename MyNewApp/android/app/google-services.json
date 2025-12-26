@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "289587934207",
+    "project_id": "homealone-bc378",
+    "storage_bucket": "homealone-bc378.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:289587934207:android:3af0e511a9c2cc13eb2dca",
+        "android_client_info": {
+          "package_name": "com.mynewapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDH-1cVBDfWfDvriMVDb_3mAndKtWcDz68"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
