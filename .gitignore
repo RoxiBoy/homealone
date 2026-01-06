@@ -1,6 +1,11 @@
 /other
 /other/*
 
+**/.git
+
+
+/MyNewApp/*
+/MyNewApp
 
 ##################################
 # Global
@@ -44,7 +49,7 @@ server/node_modules/
 server/.env
 server/dist/
 server/build/
-
+server/mongo_user_details.txt
 ##################################
 # React Native (MyNewApp/)
 ##################################

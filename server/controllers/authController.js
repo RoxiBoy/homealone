@@ -3,7 +3,9 @@ const User = require('../models/User');
 
 // Register a new user
 exports.register = async (req, res) => {
+  console.log("Register Endpoint Hit")
   try {
+
     const { username, password, name, email, phone, age } = req.body;
 
     // Check if user already exists
@@ -28,6 +30,7 @@ exports.register = async (req, res) => {
     });
 
     await user.save();
+
 
     res.status(201).json({
       message: 'User registered successfully',
