@@ -4,6 +4,7 @@ import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { useAuth } from '../../contexts/AuthContext';
 import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
+import TestTab from '../test/TestTab';
 
 type MainTabKey = 'home' | 'settings' | 'emergency' | 'test';
 
@@ -159,7 +160,15 @@ const MainScreen: React.FC = () => {
             >
               Emergency contacts
             </Button>
-         </YStack>
+
+            <Button
+              size="$4"
+              variant={activeTab === 'test' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('test')}
+            >
+              Test
+            </Button>
+          </YStack>
         </Animated.View>
       </Animated.View>
     </View>
