@@ -15,6 +15,8 @@ export type AuthUser = {
   email?: string;
   phone?: string;
   age?: number;
+  checkInIntervalHours?: number;
+  emergencyCountdownMinutes?: number;
 };
 
 export type RegisterPayload = {

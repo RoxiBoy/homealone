@@ -18,4 +18,7 @@ router.post('/check-in', userController.updateCheckIn);
 // Update check-in status
 router.post('/check-in-status', userController.updateCheckInStatus);
 
+// Update check-in settings (interval and countdown)
+router.put('/settings', userController.updateSettings);
+
 module.exports = router;

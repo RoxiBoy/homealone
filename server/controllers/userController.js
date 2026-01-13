@@ -86,6 +86,38 @@ exports.updateCheckIn = async (req, res) => {
   }
 };
 
+// Update check-in settings (interval and countdown)
+exports.updateSettings = async (req, res) => {
+  try {
+    const { checkInIntervalHours, emergencyCountdownMinutes } = req.body;
+
+    const update = {};
+    if (typeof checkInIntervalHours === 'number') {
+      update.checkInIntervalHours = checkInIntervalHours;
+    }
+    if (typeof emergencyCountdownMinutes === 'number') {
+      update.emergencyCountdownMinutes = emergencyCountdownMinutes;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      update,
+      { new: true, runValidators: true },
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({
+      message: 'Error updating settings',
+      error: error.message,
+    });
+  }
+};
+
 // Update check-in status
 exports.updateCheckInStatus = async (req, res) => {
   try {
