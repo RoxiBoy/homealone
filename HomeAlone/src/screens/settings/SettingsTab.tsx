@@ -16,8 +16,8 @@ type ActivitySettings = {
 };
 
 const DEFAULT_SETTINGS: ActivitySettings = {
-  checkInTime: 4,
-  countdownTime: 5,
+  checkInTime: 2,
+  countdownTime: 2,
 };
 
 const SettingsTab: React.FC = () => {

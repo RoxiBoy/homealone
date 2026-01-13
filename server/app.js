@@ -12,6 +12,7 @@ const friendRoutes = require('./routes/friendRoutes');
 const emergencyContactRoutes = require('./routes/emergencyContactRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const tipRoutes = require('./routes/tipRoutes');
+const checkInSessionRoutes = require('./routes/checkInSessionRoutes');
 
 // Initialize express app
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/emergency-contact', emergencyContactRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/tips', tipRoutes);
+app.use('/api/checkins', checkInSessionRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

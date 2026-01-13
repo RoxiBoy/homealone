@@ -5,7 +5,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
 
-type MainTabKey = 'home' | 'settings' | 'emergency';
+type MainTabKey = 'home' | 'settings' | 'emergency' | 'test';
 
 const MainScreen: React.FC = () => {
   const { user, logout } = useAuth();
@@ -35,6 +35,8 @@ const MainScreen: React.FC = () => {
         return <SettingsTab />;
       case 'emergency':
         return <EmergencyContactsTab />;
+      case 'test':
+        return <TestTab />;
       case 'home':
       default:
         return (
@@ -157,7 +159,7 @@ const MainScreen: React.FC = () => {
             >
               Emergency contacts
             </Button>
-          </YStack>
+         </YStack>
         </Animated.View>
       </Animated.View>
     </View>

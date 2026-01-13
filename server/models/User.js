@@ -34,11 +34,11 @@ const userSchema = new mongoose.Schema(
     },
     checkInIntervalHours: {
       type: Number,
-      default: 4,
+      default: 2,
     },
     emergencyCountdownMinutes: {
       type: Number,
-      default: 5,
+      default: 2,
     },
     lastCheckIn: {
       type: Date,
