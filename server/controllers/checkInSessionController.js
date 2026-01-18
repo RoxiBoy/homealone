@@ -93,14 +93,21 @@ exports.respondOk = async (req, res) => {
     session.resolvedAt = now;
     await session.save();
 
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      {
-        lastCheckIn: now,
-        checkInStatus: 'ok',
-      },
-      { new: true },
-    ).select('-password');
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.lastCheckIn = now;
+    user.checkInStatus = 'ok';
+
+    // Schedule the next check-in based on the user's interval
+    const intervalHours = user.checkInIntervalHours ?? 2;
+    if (intervalHours > 0) {
+      user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+    }
+
+    await user.save();
 
     return res.status(200).json({ session, user });
   } catch (error) {

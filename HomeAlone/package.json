@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@react-native-firebase/app": "^23.8.0",
+    "@react-native-firebase/messaging": "^23.8.0",
     "@react-native/new-app-screen": "0.83.1",
     "@tamagui/animations-react-native": "1.142.0",
     "@tamagui/config": "1.142.0",

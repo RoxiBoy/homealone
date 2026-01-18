@@ -12,6 +12,9 @@ router.get('/profile', userController.getProfile);
 // Update user profile
 router.put('/profile', userController.updateProfile);
 
+// Register/update device FCM token
+router.put('/device-token', userController.updateDeviceToken);
+
 // Update last check-in time
 router.post('/check-in', userController.updateCheckIn);
 

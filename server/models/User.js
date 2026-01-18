@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    fcmToken: {
+      type: String,
+      default: null,
+    },
     age: {
       type: Number,
       required: true,
@@ -39,6 +43,10 @@ const userSchema = new mongoose.Schema(
     emergencyCountdownMinutes: {
       type: Number,
       default: 2,
+    },
+    nextCheckInAt: {
+      type: Date,
+      default: null,
     },
     lastCheckIn: {
       type: Date,

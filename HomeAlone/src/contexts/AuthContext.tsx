@@ -7,6 +7,7 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from '../config/api';
+import { initPush } from '../services/push';
 
 export type AuthUser = {
   id: string;
@@ -59,7 +60,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (storedToken && storedUser) {
           setToken(storedToken);
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          setUser(parsedUser);
+
+          // Also initialize push if we restored a session
+          initPush(storedToken).catch(err => {
+            console.log('[AuthContext] Failed to init push from restored session', err);
+          });
         }
       } catch (e) {
         console.warn('Failed to restore auth session', e);
@@ -79,6 +86,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       AsyncStorage.setItem(AUTH_TOKEN_KEY, nextToken),
       AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser)),
     ]);
+
+    // Initialize push notifications once we have a valid auth token
+    initPush(nextToken).catch(err => {
+      console.log('[AuthContext] Failed to init push after login', err);
+    });
   }, []);
 
   const clearSession = useCallback(async () => {

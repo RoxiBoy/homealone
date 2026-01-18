@@ -55,6 +55,28 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+// Register or update the user's device FCM token
+exports.updateDeviceToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body;
+
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.fcmToken = fcmToken || null;
+    await user.save();
+
+    return res.status(200).json({ message: 'Device token updated' });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Error updating device token',
+      error: error.message,
+    });
+  }
+};
+
 // Update last check-in time
 exports.updateCheckIn = async (req, res) => {
   try {
@@ -91,23 +113,28 @@ exports.updateSettings = async (req, res) => {
   try {
     const { checkInIntervalHours, emergencyCountdownMinutes } = req.body;
 
-    const update = {};
-    if (typeof checkInIntervalHours === 'number') {
-      update.checkInIntervalHours = checkInIntervalHours;
-    }
-    if (typeof emergencyCountdownMinutes === 'number') {
-      update.emergencyCountdownMinutes = emergencyCountdownMinutes;
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      update,
-      { new: true, runValidators: true },
-    ).select('-password');
-
+    const user = await User.findById(req.userId).select('-password');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    if (typeof checkInIntervalHours === 'number') {
+      user.checkInIntervalHours = checkInIntervalHours;
+    }
+    if (typeof emergencyCountdownMinutes === 'number') {
+      user.emergencyCountdownMinutes = emergencyCountdownMinutes;
+    }
+
+    // If the user is not in an emergency, schedule the next check-in based on the (possibly new) interval
+    if (user.checkInStatus !== 'emergency') {
+      const intervalHours = user.checkInIntervalHours ?? 2;
+      if (intervalHours > 0) {
+        const now = new Date();
+        user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+      }
+    }
+
+    await user.save();
 
     res.status(200).json(user);
   } catch (error) {

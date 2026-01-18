@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const app = require('./app');
+const { startCheckInScheduler } = require('./checkInScheduler');
 require('dotenv').config();
 
 const PORT = process.env.PORT || 3000;
@@ -11,6 +12,7 @@ mongoose
     console.log('Connected to MongoDB');
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
+      startCheckInScheduler();
     });
   })
   .catch((err) => {
