@@ -32,6 +32,10 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/tips', tipRoutes);
 app.use('/api/checkins', checkInSessionRoutes);
 
+// const { sendSms } = require("./services/smsService")
+
+// sendSms("Test_User_02", "+9779816015362")
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);

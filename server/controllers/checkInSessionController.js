@@ -39,9 +39,11 @@ exports.startSession = async (req, res) => {
   }
 };
 
-// Get the latest active check-in session (pending or emergency) for the user.
+// Get the latest active check-in session (pending or fresh emergency) for the user.
 exports.getActiveSession = async (req, res) => {
   try {
+    const EMERGENCY_ACTIVE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+
     let session = await CheckInSession.findOne({
       user: req.userId,
     })
@@ -54,8 +56,8 @@ exports.getActiveSession = async (req, res) => {
 
     const now = new Date();
 
+    // If the most recent session is pending but past the deadline, escalate to emergency
     if (session.status === 'pending' && now > session.responseDeadline) {
-      // Auto-escalate to emergency if response window has passed
       session.status = 'emergency';
       session.resolvedAt = now;
       await session.save();
@@ -65,8 +67,24 @@ exports.getActiveSession = async (req, res) => {
       });
     }
 
-    // Re-fetch to ensure latest
+    // Re-fetch to ensure latest values
     session = await CheckInSession.findById(session._id);
+
+    // If the session is emergency but old, mark it as expired and hide from the client
+    if (session.status === 'emergency') {
+      const resolvedAt = session.resolvedAt || session.updatedAt || session.createdAt;
+      if (resolvedAt && now.getTime() - resolvedAt.getTime() > EMERGENCY_ACTIVE_WINDOW_MS) {
+        session.status = 'expired';
+        await session.save();
+
+        await User.findByIdAndUpdate(req.userId, {
+          // Clear emergency flag after window has passed
+          checkInStatus: 'ok',
+        });
+
+        return res.status(200).json({ session: null });
+      }
+    }
 
     return res.status(200).json({ session });
   } catch (error) {

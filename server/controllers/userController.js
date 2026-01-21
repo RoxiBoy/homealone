@@ -1,5 +1,7 @@
 const User = require('../models/User');
 const Friend = require('../models/Friend');
+const { sendTestNotification } = require('../services/pushService');
+const CheckInSession = require('../models/CheckInSession');
 
 // Get user profile
 exports.getProfile = async (req, res) => {
@@ -163,16 +165,36 @@ exports.updateCheckInStatus = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    // If status is 'emergency', get priority 1 contact
     if (status === 'emergency') {
+      // If status is 'emergency', get priority 1 contact
       const priorityContact = await Friend.findOne({
         user: req.userId,
-        priority: 1
+        priority: 1,
       });
       
       if (priorityContact) {
         // In a real implementation, this would trigger an SMS or call to the contact
         console.log(`EMERGENCY: Contacting ${priorityContact.name} at ${priorityContact.phone}`);
+      }
+    } else if (status === 'ok') {
+      // Clearing emergency: expire the latest emergency check-in session, if any.
+      const latestEmergency = await CheckInSession.findOne({
+        user: req.userId,
+        status: 'emergency',
+      })
+        .sort({ createdAt: -1 })
+        .exec();
+
+      if (latestEmergency) {
+        latestEmergency.status = 'expired';
+        latestEmergency.resolvedAt = new Date();
+        await latestEmergency.save();
+        console.log(
+          '[userController.updateCheckInStatus] Cleared emergency session',
+          latestEmergency._id.toString(),
+          'for user',
+          user._id.toString(),
+        );
       }
     }
     
@@ -183,6 +205,36 @@ exports.updateCheckInStatus = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Error updating check-in status',
+      error: error.message,
+    });
+  }
+};
+
+// Send a simple test FCM notification to the current user
+exports.sendTestNotification = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const result = await sendTestNotification(user);
+
+    if (!result?.ok) {
+      const status = result?.status || 500;
+      return res.status(status).json({
+        message: 'Failed to send test notification',
+        reason: result?.reason,
+        ...(result?.body ? { fcmResponse: result.body } : {}),
+        ...(result?.error ? { error: result.error } : {}),
+      });
+    }
+
+    return res.status(200).json({ message: 'Test notification request accepted' });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Error sending test notification',
       error: error.message,
     });
   }

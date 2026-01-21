@@ -24,4 +24,7 @@ router.post('/check-in-status', userController.updateCheckInStatus);
 // Update check-in settings (interval and countdown)
 router.put('/settings', userController.updateSettings);
 
+// Send a basic FCM test notification to the current user
+router.post('/test-notification', userController.sendTestNotification);
+
 module.exports = router;

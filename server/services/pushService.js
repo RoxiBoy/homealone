@@ -38,7 +38,7 @@ async function sendCheckInNotification(user, session) {
       token: user.fcmToken,
       notification: {
         title: 'HomeAlone check-in',
-        body: 'Please confirm you are okay.',
+        body: 'Are you okay? Tap to respond.',
       },
       data: {
         type: 'checkin',
@@ -46,6 +46,14 @@ async function sendCheckInNotification(user, session) {
       },
       android: {
         priority: 'HIGH',
+        notification: {
+          channel_id: 'checkin-alerts',
+          sound: 'default',
+          // HTTP v1 expects enum strings like PUBLIC/PRIVATE/SECRET, not VISIBILITY_PUBLIC.
+          visibility: 'PUBLIC',
+          default_vibrate_timings: true,
+          default_light_settings: true,
+        },
       },
     },
   };
@@ -73,6 +81,85 @@ async function sendCheckInNotification(user, session) {
   }
 }
 
+async function sendTestNotification(user) {
+  if (!user.fcmToken) {
+    console.log('[pushService] User has no fcmToken; skipping test notification for', user._id.toString());
+    return {
+      ok: false,
+      reason: 'no-fcm-token',
+    };
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    console.log('[pushService] FIREBASE_PROJECT_ID not set; cannot send test push notification');
+    return {
+      ok: false,
+      reason: 'no-project-id',
+    };
+  }
+
+  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+
+  const body = {
+    message: {
+      token: user.fcmToken,
+      notification: {
+        title: 'HomeAlone test notification',
+        body: 'If you see this, FCM is configured correctly.',
+      },
+      data: {
+        type: 'test',
+      },
+      android: {
+        priority: 'HIGH',
+        notification: {
+          channel_id: 'checkin-alerts',
+          sound: 'default',
+          visibility: 'PUBLIC',
+          default_vibrate_timings: true,
+          default_light_settings: true,
+        },
+      },
+    },
+  };
+
+  try {
+    const accessToken = await getAccessToken();
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('[pushService] FCM HTTP v1 test error', res.status, text);
+      return {
+        ok: false,
+        reason: 'fcm-error',
+        status: res.status,
+        body: text,
+      };
+    }
+
+    console.log('[pushService] FCM HTTP v1 test notification sent for user', user._id.toString());
+    return { ok: true };
+  } catch (err) {
+    console.error('[pushService] Error sending FCM HTTP v1 test notification', err);
+    return {
+      ok: false,
+      reason: 'exception',
+      error: err?.message || String(err),
+    };
+  }
+}
+
 module.exports = {
   sendCheckInNotification,
+  sendTestNotification,
 };

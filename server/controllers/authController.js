@@ -61,6 +61,25 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Ensure the user has a nextCheckInAt scheduled (server-driven timer)
+    try {
+      if (user.checkInStatus !== 'emergency') {
+        const now = new Date();
+        const intervalHours = user.checkInIntervalHours ?? 2;
+
+        if (intervalHours > 0) {
+          // If nothing scheduled yet or the scheduled time is in the past, schedule a new one
+          if (!user.nextCheckInAt || user.nextCheckInAt <= now) {
+            user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+            await user.save();
+            console.log('[authController.login] Scheduled nextCheckInAt for user', user._id.toString(), 'at', user.nextCheckInAt.toISOString());
+          }
+        }
+      }
+    } catch (scheduleErr) {
+      console.warn('[authController.login] Failed to schedule nextCheckInAt on login', scheduleErr);
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       { 
