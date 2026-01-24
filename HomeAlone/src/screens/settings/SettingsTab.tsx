@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS: ActivitySettings = {
 };
 
 const SettingsTab: React.FC = () => {
-  const { token } = useAuth();
+  const { token, notificationsEnabled } = useAuth();
   const [settings, setSettings] = useState<ActivitySettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
 
@@ -109,6 +109,18 @@ const SettingsTab: React.FC = () => {
   return (
     <ScrollView style={{ flex: 1 }}>
       <YStack space="$4" padding="$4">
+        {notificationsEnabled === false && (
+          <View backgroundColor="#330000" borderRadius="$4" padding="$3">
+            <Text color="red" fontWeight="600" marginBottom="$1">
+              Notifications are disabled or not available.
+            </Text>
+            <Text fontSize="$3" color="$color11">
+              Check-ins will not be reliable unless you enable notifications for HomeAlone in your
+              device settings.
+            </Text>
+          </View>
+        )}
+
         <Text fontSize="$7" fontWeight="700">
           Check-in Settings
         </Text>

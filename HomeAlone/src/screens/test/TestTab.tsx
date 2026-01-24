@@ -1,21 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { ScrollView } from 'react-native';
-import { View, Text, Input, Button, YStack } from 'tamagui';
+import { View, Text, Button, YStack, Input } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
-import { useCheckIn } from '../../contexts/CheckInContext';
 import { apiFetch } from '../../config/api';
 
 const TEST_SETTINGS_KEY = '@homealone/test-settings';
 
 const TestTab: React.FC = () => {
   const { token } = useAuth();
-  const { refreshActiveSession } = useCheckIn();
-  const [intervalHours, setIntervalHours] = useState('0.001'); // default tiny interval for tests
-  const [countdownMinutes, setCountdownMinutes] = useState('0.05'); // default tiny countdown for tests
   const [logs, setLogs] = useState<string[]>([]);
-  const [running, setRunning] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [sending, setSending] = useState(false);
+  const [intervalMinutes, setIntervalMinutes] = useState('0.1'); // ~6 seconds
+  const [countdownSeconds, setCountdownSeconds] = useState('10'); // 10 seconds
 
   const appendLog = (message: string) => {
     const line = `${new Date().toISOString()} - ${message}`;
@@ -23,126 +20,139 @@ const TestTab: React.FC = () => {
     setLogs(prev => [...prev.slice(-19), line]);
   };
 
-  const simulateCheckIn = async () => {
+  const handleSendTestNotification = async () => {
     if (!token) {
-      appendLog('No token available; please log in first.');
+      appendLog('No auth token available; please log in first.');
       return;
     }
 
-    const interval = Number(intervalHours);
-    const countdown = Number(countdownMinutes);
+    setSending(true);
+    try {
+      appendLog('Requesting backend to send a basic FCM test notification...');
 
-    if (!Number.isFinite(interval) || !Number.isFinite(countdown) || countdown <= 0) {
-      appendLog('Invalid test values. Interval and countdown must be numbers; countdown > 0.');
+      await apiFetch('/users/test-notification', {
+        method: 'POST',
+        token,
+      });
+
+      appendLog(
+        'Backend accepted test notification request. If FCM is configured correctly and your device has registered an FCM token, you should see a push notification shortly.',
+      );
+    } catch (e: any) {
+      appendLog(`Error sending test notification: ${e?.message || String(e)}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Arm a short-interval check-in using the real scheduler + /users/settings.
+  const handleArmShortCheckIn = async () => {
+    if (!token) {
+      appendLog('No auth token available; please log in first.');
       return;
     }
 
-    setRunning(true);
+    const intervalM = Number(intervalMinutes);
+    const countdownS = Number(countdownSeconds);
+
+    if (!Number.isFinite(intervalM) || !Number.isFinite(countdownS) || intervalM <= 0 || countdownS <= 0) {
+      appendLog('Invalid test values. Interval and countdown must be positive numbers.');
+      return;
+    }
+
+    setSending(true);
 
     try {
-      appendLog(`Saving test settings: interval=${interval}h, countdown=${countdown}m`);
+      const intervalHours = intervalM / 60; // server expects hours
+      const countdownMinutes = countdownS / 60; // server field is minutes
+
+      appendLog(
+        `Saving short check-in settings: interval=${intervalM}m (${intervalHours}h), countdown=${countdownS}s (${countdownMinutes}m)`,
+      );
 
       await AsyncStorage.setItem(
         TEST_SETTINGS_KEY,
-        JSON.stringify({ checkInIntervalHours: interval, emergencyCountdownMinutes: countdown }),
+        JSON.stringify({ checkInIntervalHours: intervalHours, emergencyCountdownMinutes: countdownMinutes }),
       );
 
       await apiFetch('/users/settings', {
         method: 'PUT',
         token,
         body: JSON.stringify({
-          checkInIntervalHours: interval,
-          emergencyCountdownMinutes: countdown,
+          checkInIntervalHours: intervalHours,
+          emergencyCountdownMinutes: countdownMinutes,
         }),
       });
 
-      const delayMs = interval * 60 * 60 * 1000;
+      const delayMs = intervalM * 60 * 1000;
       const fireAt = new Date(Date.now() + delayMs);
       appendLog(
-        `Server check-in will be started after interval; simulating scheduler with delayMs=${delayMs} (fires at ${fireAt.toLocaleTimeString()})`,
+        `Server scheduler will start a check-in around ${fireAt.toLocaleTimeString()}. When it fires, you should receive an FCM push and see the in-app "Are you okay?" prompt.`,
       );
-
-      // Clear any previous scheduled test
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-        appendLog('Cleared previously scheduled test check-in.');
-      }
-
-      timeoutRef.current = setTimeout(async () => {
-        try {
-          appendLog('Interval elapsed; calling /checkins/start to create a server check-in session.');
-
-          const startResponse = await apiFetch<{
-            session: { _id: string };
-            countdownSeconds: number;
-          }>('/checkins/start', {
-            method: 'POST',
-            token,
-          });
-
-          appendLog(
-            `Check-in session created: id=${startResponse.session._id}, countdownSeconds=${startResponse.countdownSeconds}`,
-          );
-
-          await refreshActiveSession();
-          appendLog('Requested active session refresh in CheckInContext (prompt should appear if pending).');
-        } catch (e: any) {
-          appendLog(`Error while starting test check-in after delay: ${e?.message || String(e)}`);
-        }
-      }, delayMs);
     } catch (e: any) {
-      appendLog(`Error during simulation setup: ${e?.message || String(e)}`);
-      setRunning(false);
-      return;
+      appendLog(`Error arming short check-in: ${e?.message || String(e)}`);
+    } finally {
+      setSending(false);
     }
-
-    setRunning(false);
   };
 
   return (
     <ScrollView style={{ flex: 1 }}>
       <YStack space="$4" padding="$4">
         <Text fontSize="$7" fontWeight="700">
-          Test check-in flow
+          Test FCM + check-in flow
         </Text>
         <Text fontSize="$4" color="$color11">
-          Use this screen to simulate the safety loop with short timers so you do not have to wait
-          hours.
+          Use this screen to (1) send a basic FCM test notification and (2) arm a very short
+          server-driven check-in interval so you can see the full "Are you okay?" flow quickly.
         </Text>
 
         <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4">
           <Text fontSize="$5" fontWeight="600" marginBottom="$2">
-            Timers
+            1. Send a basic test notification
+          </Text>
+          <Button disabled={sending} onPress={handleSendTestNotification}>
+            {sending ? 'Sending…' : 'Send test notification'}
+          </Button>
+        </View>
+
+        <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
+          <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+            2. Arm a short check-in interval
+          </Text>
+          <Text fontSize="$3" color="$color11" marginBottom="$2">
+            Set a very small check-in interval and response window. The backend scheduler will create
+            a check-in session and send an FCM push. You should then see the in-app "Are you okay?"
+            modal with "I'm OK" / "I'm Not OK".
           </Text>
 
           <YStack space="$2">
             <View>
               <Text fontSize="$3" marginBottom="$1">
-                Check-in interval (hours)
+                Check-in interval (minutes)
               </Text>
               <Input
-                value={intervalHours}
-                onChangeText={setIntervalHours}
+                value={intervalMinutes}
+                onChangeText={setIntervalMinutes}
                 keyboardType="numeric"
-                placeholder="e.g. 0.001"
+                placeholder="e.g. 0.1 (≈ 6 seconds)"
               />
             </View>
 
             <View>
               <Text fontSize="$3" marginBottom="$1">
-                Response window (minutes)
+                Response window (seconds)
               </Text>
               <Input
-                value={countdownMinutes}
-                onChangeText={setCountdownMinutes}
+                value={countdownSeconds}
+                onChangeText={setCountdownSeconds}
                 keyboardType="numeric"
-                placeholder="e.g. 0.05"
+                placeholder="e.g. 10"
               />
             </View>
 
-            <Button marginTop="$3" disabled={running} onPress={simulateCheckIn}>
-              {running ? 'Running test…' : 'Simulate check-in now'}
+            <Button marginTop="$2" disabled={sending} onPress={handleArmShortCheckIn}>
+              {sending ? 'Saving…' : 'Save & arm short check-in'}
             </Button>
           </YStack>
         </View>
@@ -153,7 +163,7 @@ const TestTab: React.FC = () => {
           </Text>
           {logs.length === 0 ? (
             <Text fontSize="$3" color="$color11">
-              No logs yet. Run a simulation to see the protocol steps.
+              No logs yet. Press the button above to send a test notification.
             </Text>
           ) : (
             <YStack space="$1">

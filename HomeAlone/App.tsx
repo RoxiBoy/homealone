@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { TamaguiProvider } from 'tamagui'
-import { View } from 'tamagui'
+import { View, Text } from 'tamagui'
 import { config } from './tamagui.config'
 import { AuthProvider, useAuth } from './src/contexts/AuthContext'
 import { CheckInProvider } from './src/contexts/CheckInContext'
@@ -16,7 +16,7 @@ function RootNavigator() {
   if (initializing) {
     return (
       <View flex={1} alignItems="center" justifyContent="center" backgroundColor="$background">
-        Loading...
+        <Text>Loading...</Text>
       </View>
     )
   }

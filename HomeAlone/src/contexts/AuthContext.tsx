@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from '../config/api';
-import { initPush } from '../services/push';
+import { initPush, InitPushResult, setupNotificationOpenHandlers } from '../services/push';
 
 export type AuthUser = {
   id: string;
@@ -34,6 +34,7 @@ type AuthContextValue = {
   token: string | null;
   initializing: boolean;
   loading: boolean;
+  notificationsEnabled: boolean | null;
   login: (username: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
@@ -49,6 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [initializing, setInitializing] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -64,9 +66,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(parsedUser);
 
           // Also initialize push if we restored a session
-          initPush(storedToken).catch(err => {
+          try {
+            const result: InitPushResult = await initPush(storedToken);
+            setNotificationsEnabled(result.enabled);
+            if (result.enabled) {
+              setupNotificationOpenHandlers();
+            }
+          } catch (err) {
             console.log('[AuthContext] Failed to init push from restored session', err);
-          });
+            setNotificationsEnabled(false);
+          }
         }
       } catch (e) {
         console.warn('Failed to restore auth session', e);
@@ -88,14 +97,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
 
     // Initialize push notifications once we have a valid auth token
-    initPush(nextToken).catch(err => {
-      console.log('[AuthContext] Failed to init push after login', err);
-    });
+    initPush(nextToken)
+      .then((result: InitPushResult) => {
+        setNotificationsEnabled(result.enabled);
+        if (result.enabled) {
+          setupNotificationOpenHandlers();
+        }
+      })
+      .catch(err => {
+        console.log('[AuthContext] Failed to init push after login', err);
+        setNotificationsEnabled(false);
+      });
   }, []);
 
   const clearSession = useCallback(async () => {
     setToken(null);
     setUser(null);
+    setNotificationsEnabled(null);
 
     await Promise.all([
       AsyncStorage.removeItem(AUTH_TOKEN_KEY),
@@ -151,6 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     token,
     initializing,
     loading,
+    notificationsEnabled,
     login,
     register,
     logout,
