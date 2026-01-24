@@ -5,6 +5,7 @@ const User = require("../models/User");
 exports.getFriends = async (req, res) => {
   try {
     const friends = await Friend.find({ user: req.userId }).sort("priority");
+    console.log(`Friends found: ${friends}`)
     res.status(200).json(friends);
   } catch (error) {
     res.status(500).json({
@@ -16,7 +17,7 @@ exports.getFriends = async (req, res) => {
 
 exports.addFriend = async (req, res) => {
   try {
-    const { name, phone, email, relationship, priority } = req.body;
+    const { name, countryCode, phone, email, relationship, priority } = req.body;
 
     // Limit to 3 friends per user
     const friendCount = await Friend.countDocuments({ user: req.userId });
@@ -40,6 +41,7 @@ exports.addFriend = async (req, res) => {
     const friend = new Friend({
       user: req.userId,
       name,
+      countryCode,
       phone,
       email,
       relationship,
@@ -59,7 +61,7 @@ exports.addFriend = async (req, res) => {
 }; // Update a friend
 exports.updateFriend = async (req, res) => {
   try {
-    const { name, phone, email, relationship, priority } = req.body;
+    const { name, countryCode, phone, email, relationship, priority } = req.body;
 
     // Check if priority is already assigned to another friend
     if (priority) {
@@ -86,7 +88,7 @@ exports.updateFriend = async (req, res) => {
 
     const friend = await Friend.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
-      { name, phone, email, relationship, priority },
+      { name, countryCode, phone, email, relationship, priority },
       { new: true, runValidators: true }
     );
 

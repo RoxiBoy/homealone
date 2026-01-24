@@ -1,8 +1,11 @@
 const CheckInSession = require('../models/CheckInSession');
 const User = require('../models/User');
+const Friend = require('../models/Friend');
+const { sendSms } = require('../services/smsService');
+const { placeEmergencyCall } = require('../services/voiceCallService');
+const { sendEmergencyEmail } = require('../services/emailService');
+const { sendEmail } = require('../services/brevoEmailService')
 
-// Start a new check-in session for the authenticated user.
-// In a real system this would be called by a scheduler when the interval elapses.
 exports.startSession = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
@@ -62,9 +65,59 @@ exports.getActiveSession = async (req, res) => {
       session.resolvedAt = now;
       await session.save();
 
-      await User.findByIdAndUpdate(req.userId, {
-        checkInStatus: 'emergency',
-      });
+      const user = await User.findByIdAndUpdate(
+        req.userId,
+        {
+          checkInStatus: 'emergency',
+        },
+        { new: true },
+      );
+
+      // Send SMS and email to priority 1 friend
+      try {
+        const priorityFriend = await Friend.findOne({
+          user: req.userId,
+          priority: 1,
+        });
+
+        if (priorityFriend) {
+          const userName = user.name || user.username;
+          const fullPhoneNumber = `${priorityFriend.countryCode || ''}${priorityFriend.phone}`;
+
+          // Send SMS
+          console.log(
+            `[checkInSessionController.getActiveSession] Timer expired - sending SMS to ${priorityFriend.name} at ${fullPhoneNumber}`,
+          );
+          // await sendSms(userName, fullPhoneNumber);
+
+          // Place voice call (Twilio) to the same number as the SMS
+          console.log(
+            `[checkInSessionController.getActiveSession] Timer expired - placing Twilio call to ${priorityFriend.name} at ${fullPhoneNumber}`,
+          );
+          // await placeEmergencyCall(userName, fullPhoneNumber, priorityFriend.name);
+
+          // Send email if available
+          if (priorityFriend.email) {
+            console.log(
+              `[checkInSessionController.getActiveSession] Timer expired - sending email to ${priorityFriend.name} at ${priorityFriend.email}`,
+            );
+            await sendEmail(userName, priorityFriend.name, priorityFriend.email);
+          } else {
+            console.log(
+              `[checkInSessionController.getActiveSession] No email for ${priorityFriend.name}, SMS + call attempted only`,
+            );
+          }
+        } else {
+          console.log(
+            '[checkInSessionController.getActiveSession] Timer expired but no priority 1 friend found',
+          );
+        }
+      } catch (notificationError) {
+        console.error(
+          '[checkInSessionController.getActiveSession] Error sending emergency notifications:',
+          notificationError,
+        );
+      }
     }
 
     // Re-fetch to ensure latest values

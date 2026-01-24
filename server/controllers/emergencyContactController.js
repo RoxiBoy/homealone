@@ -1,5 +1,26 @@
 const EmergencyContact = require('../models/Emergency-contact');
 
+exports.getAllEmergencyContacts = async (req, res) => {
+
+    try {
+        const contacts = await EmergencyContact.find({ user: req.userId })
+
+        if  (!contacts) {
+            return res.status(404).json({message: "No emergency contacts found"})
+        }
+
+        console.log('Fetched Emergency Contacts')
+        console.log(contacts)
+        res.status(200).json(contacts)
+
+    } catch(err) {
+        res.status(500).json({
+            message: 'Error fetching emergency contact',
+            error: err.message,
+        });
+    }
+}
+
 // Get emergency contact for a user
 exports.getEmergencyContact = async (req, res) => {
   try {

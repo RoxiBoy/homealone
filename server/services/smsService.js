@@ -1,28 +1,41 @@
-const twilio = require('twilio')
+const { getTwilioClient } = require('./twilioClient');
 
-const accountSid = process.env.TWILIO_SID
-const authToken = process.env.TWILIO_AUTH_TOKEN
-const twilioPhone = process.env.TWILIO_PHONE_NO
+const getFromNumber = () => process.env.TWILIO_PHONE_NO;
 
-const twilioClient = twilio(accountSid, authToken)
+const buildEmergencySmsBody = (userName) =>
+  `This is a message from HomeAlone. Your friend ${userName} is in an emergency. Please reach them as soon as possible and help them as you can.`;
 
-const sendSms = async ( userName, emergencyContact ) => {
-    
-    try {
-        const message = await twilioClient.messages.create({
-            body: `This is a message from HomeAlone, your friend ${userName} is in an emergency, please reach to them as soon as possible and help them as you can.`,
-            from: twilioPhone,
-            to: emergencyContact
-        })
-    }catch(err){
-        console.log(`Error sending emergency Sms: ${err}`)
-    }
+const sendSms = async (userName, emergencyContact) => {
+  const twilioClient = getTwilioClient();
+  const from = getFromNumber();
 
-}
+  if (!twilioClient || !from) {
+    console.log('[smsService] Twilio SMS not configured - skipping send');
+    return { ok: false, reason: 'twilio-not-configured' };
+  }
+
+  try {
+    const message = await twilioClient.messages.create({
+      body: buildEmergencySmsBody(userName),
+      from,
+      to: emergencyContact,
+    });
+
+    console.log(
+      `[smsService] Message sent (sid=${message.sid}) for user ${userName} to contact ${emergencyContact}`,
+    );
+
+    return { ok: true, sid: message.sid };
+  } catch (err) {
+    console.log(`[smsService] Error sending emergency SMS: ${err}`);
+    return { ok: false, reason: 'send-error', error: err?.message || String(err) };
+  }
+};
 
 module.exports = {
-    sendSms
-}
+  sendSms,
+  buildEmergencySmsBody,
+};
 
 
 

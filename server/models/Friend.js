@@ -11,6 +11,10 @@ const friendSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    countryCode: {
+      type: String,
+      default: '+1', // Default to US
+    },
     phone: {
       type: String,
       required: true,

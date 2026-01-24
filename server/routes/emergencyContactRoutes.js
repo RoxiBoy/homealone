@@ -4,10 +4,14 @@ const emergencyContactController = require('../controllers/emergencyContactContr
 const authMiddleware = require('../middleware/auth')
 
 // Apply auth middleware to all routes
-router.use(authMiddleware);
+// router.use(authMiddleware);
+
 
 // Get emergency contact
 router.get('/', emergencyContactController.getEmergencyContact);
+
+// Get all emergency contacts
+router.get('/getAllEmergencyContacts', emergencyContactController.getAllEmergencyContacts)
 
 // Create emergency contact
 router.post('/', emergencyContactController.createEmergencyContact);
