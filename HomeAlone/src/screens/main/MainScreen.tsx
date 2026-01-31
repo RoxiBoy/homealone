@@ -2,15 +2,28 @@ import React, { useMemo, useRef, useState } from 'react';
 import { Dimensions, Animated, Easing, TouchableOpacity } from 'react-native';
 import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { useAuth } from '../../contexts/AuthContext';
+import DashboardTab from '../dashboard/DashboardTab';
+import TipsTab from '../tips/TipsTab';
+import ProductsTab from '../products/ProductsTab';
+import ServicesTab from '../services/ServicesTab';
+import RemindersTab from '../reminders/RemindersTab';
 import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
 import TestTab from '../test/TestTab';
 
-type MainTabKey = 'home' | 'settings' | 'emergency' | 'test';
+type MainTabKey =
+  | 'dashboard'
+  | 'tips'
+  | 'products'
+  | 'services'
+  | 'reminders'
+  | 'settings'
+  | 'emergency'
+  | 'test';
 
 const MainScreen: React.FC = () => {
-  const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<MainTabKey>('home');
+  const { logout } = useAuth();
+  const [activeTab, setActiveTab] = useState<MainTabKey>('dashboard');
   const [menuOpen, setMenuOpen] = useState(false);
 
   const drawerWidth = useMemo(
@@ -32,24 +45,24 @@ const MainScreen: React.FC = () => {
 
   const renderActiveTab = () => {
     switch (activeTab) {
+      case 'dashboard':
+        return <DashboardTab />;
+      case 'tips':
+        return <TipsTab />;
+      case 'products':
+        return <ProductsTab />;
+      case 'services':
+        return <ServicesTab />;
+      case 'reminders':
+        return <RemindersTab />;
       case 'settings':
         return <SettingsTab />;
       case 'emergency':
         return <EmergencyContactsTab />;
       case 'test':
         return <TestTab />;
-      case 'home':
       default:
-        return (
-          <YStack flex={1} padding="$4" space="$3" justifyContent="center" alignItems="center">
-            <Text fontSize="$7" fontWeight="700">
-              Welcome, {user?.name || user?.username}
-            </Text>
-            <Text fontSize="$4" color="$color11" textAlign="center">
-              This is your Home screen. Additional HomeAlone features can be added here later.
-            </Text>
-          </YStack>
-        );
+        return <DashboardTab />;
     }
   };
 
@@ -139,11 +152,45 @@ const MainScreen: React.FC = () => {
 
             <Button
               size="$4"
-              variant={activeTab === 'home' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('home')}
+              variant={activeTab === 'dashboard' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('dashboard')}
             >
-              Home
+              Dashboard
             </Button>
+
+            <Button
+              size="$4"
+              variant={activeTab === 'tips' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('tips')}
+            >
+              Tips
+            </Button>
+
+            <Button
+              size="$4"
+              variant={activeTab === 'products' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('products')}
+            >
+              Products
+            </Button>
+
+            <Button
+              size="$4"
+              variant={activeTab === 'services' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('services')}
+            >
+              Services
+            </Button>
+
+            <Button
+              size="$4"
+              variant={activeTab === 'reminders' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('reminders')}
+            >
+              Reminders
+            </Button>
+
+            <View height={1} backgroundColor="$borderColor" opacity={0.4} marginVertical="$2" />
 
             <Button
               size="$4"

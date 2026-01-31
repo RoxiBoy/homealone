@@ -4,58 +4,72 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema(
   {
     username: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
     },
     password: {
-      type: String,
-      required: true,
+        type: String,
+        required: true,
     },
     name: {
-      type: String,
-      required: true,
+        type: String,
+        required: true,
     },
     email: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      lowercase: true,
+        type: String,
+        required: true,
+        unique: true,
+        trim: true,
+        lowercase: true,
     },
     phone: {
-      type: String,
-      required: true,
+        type: String,
+        required: true,
     },
     fcmToken: {
-      type: String,
-      default: null,
+        type: String,
+        default: null,
     },
     age: {
-      type: Number,
-      required: true,
+        type: Number,
+        required: true,
+    },
+    dnd: {
+        type: Boolean,
+        required: true,
+        default: false
+    },
+    // Client-side app state reported to the backend (used to suppress check-in alerts)
+    isActive: {
+        type: Boolean,
+        default: false,
+    },
+    lastActiveAt: {
+        type: Date,
+        default: null,
     },
     checkInIntervalHours: {
-      type: Number,
-      default: 2,
+        type: Number,
+        default: 2,
     },
     emergencyCountdownMinutes: {
-      type: Number,
-      default: 2,
+        type: Number,
+        default: 2,
     },
     nextCheckInAt: {
-      type: Date,
-      default: null,
+        type: Date,
+        default: null,
     },
     lastCheckIn: {
-      type: Date,
-      default: Date.now,
+        type: Date,
+        default: Date.now,
     },
     checkInStatus: {
-      type: String,
-      enum: ['ok', 'pending', 'emergency'],
-      default: 'ok',
+        type: String,
+        enum: ['ok', 'pending', 'emergency'],
+        default: 'ok',
     },
   },
   {

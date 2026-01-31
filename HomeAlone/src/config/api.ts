@@ -22,9 +22,10 @@ export async function apiFetch<T>(
   });
 
   let data: any = null;
+
   try {
     data = await response.json();
-  } catch (e) {
+  } catch {
     // ignore JSON parse errors for empty responses
   }
 

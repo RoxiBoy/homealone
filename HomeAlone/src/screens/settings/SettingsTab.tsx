@@ -13,16 +13,21 @@ const COUNTDOWN_OPTIONS = [1, 2, 5, 10, 15, 30, 60]; // minutes
 type ActivitySettings = {
   checkInTime: number; // hours
   countdownTime: number; // minutes
+  dnd: boolean;
 };
 
 const DEFAULT_SETTINGS: ActivitySettings = {
   checkInTime: 2,
   countdownTime: 2,
+  dnd: false,
 };
 
 const SettingsTab: React.FC = () => {
-  const { token, notificationsEnabled } = useAuth();
-  const [settings, setSettings] = useState<ActivitySettings>(DEFAULT_SETTINGS);
+  const { token, notificationsEnabled, user, updateUser } = useAuth();
+  const [settings, setSettings] = useState<ActivitySettings>({
+    ...DEFAULT_SETTINGS,
+    dnd: user?.dnd ?? false,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,6 +39,7 @@ const SettingsTab: React.FC = () => {
             const profile = await apiFetch<{
               checkInIntervalHours?: number;
               emergencyCountdownMinutes?: number;
+              dnd?: boolean;
             }>('/users/profile', {
               method: 'GET',
               token,
@@ -48,6 +54,7 @@ const SettingsTab: React.FC = () => {
                 typeof profile.emergencyCountdownMinutes === 'number'
                   ? profile.emergencyCountdownMinutes
                   : prev.countdownTime,
+              dnd: typeof profile.dnd === 'boolean' ? profile.dnd : prev.dnd,
             }));
           } catch (serverError) {
             console.warn('[SettingsTab] Failed to load settings from server', serverError);
@@ -61,6 +68,7 @@ const SettingsTab: React.FC = () => {
           setSettings(current => ({
             checkInTime: parsed.checkInTime ?? current.checkInTime,
             countdownTime: parsed.countdownTime ?? current.countdownTime,
+            dnd: parsed.dnd ?? current.dnd,
           }));
         }
       } catch (e) {
@@ -75,6 +83,7 @@ const SettingsTab: React.FC = () => {
 
   const persistSettings = async (next: ActivitySettings) => {
     setSettings(next);
+
     try {
       await AsyncStorage.setItem(ACTIVITY_SETTINGS_KEY, JSON.stringify(next));
     } catch (e) {
@@ -90,12 +99,16 @@ const SettingsTab: React.FC = () => {
           body: JSON.stringify({
             checkInIntervalHours: next.checkInTime,
             emergencyCountdownMinutes: next.countdownTime,
+            dnd: next.dnd,
           }),
         });
       } catch (e) {
         console.warn('[SettingsTab] Failed to save settings on server', e);
       }
     }
+
+    // Update auth user snapshot so other parts of the app can react to DND immediately
+    updateUser({ dnd: next.dnd });
   };
 
   const handleSelectCheckIn = (hours: number) => {
@@ -106,9 +119,64 @@ const SettingsTab: React.FC = () => {
     persistSettings({ ...settings, countdownTime: minutes });
   };
 
+  const persistDnd = async (nextDnd: boolean) => {
+    const next: ActivitySettings = { ...settings, dnd: nextDnd };
+    setSettings(next);
+
+    try {
+      await AsyncStorage.setItem(ACTIVITY_SETTINGS_KEY, JSON.stringify(next));
+    } catch (e) {
+      console.warn('[SettingsTab] Failed to save settings locally', e);
+    }
+
+    // Sync only the DND flag so we don't accidentally overwrite interval/countdown
+    // (especially if settings haven't loaded yet).
+    if (token) {
+      try {
+        await apiFetch('/users/settings', {
+          method: 'PUT',
+          token,
+          body: JSON.stringify({ dnd: nextDnd }),
+        });
+      } catch (e) {
+        console.warn('[SettingsTab] Failed to save DND on server', e);
+      }
+    }
+
+    updateUser({ dnd: nextDnd });
+  };
+
+  const handleToggleDnd = () => {
+    persistDnd(!settings.dnd);
+  };
+
   return (
     <ScrollView style={{ flex: 1 }}>
       <YStack space="$4" padding="$4">
+        {/* DND toggle at top */}
+        <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4">
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack flex={1} marginRight="$3">
+              <Text fontSize="$6" fontWeight="600">
+                Do Not Disturb
+              </Text>
+              <Text fontSize="$3" color="$color11">
+                When enabled, HomeAlone will not send check-in alerts.
+              </Text>
+            </YStack>
+
+            <Button size="$3" variant={settings.dnd ? 'solid' : 'outlined'} onPress={handleToggleDnd}>
+              <Text color="$color12">{settings.dnd ? 'On' : 'Off'}</Text>
+            </Button>
+          </XStack>
+
+          {settings.dnd ? (
+            <Text fontSize="$3" color="$color11" marginTop="$2">
+              DND is enabled: check-in alerts are silenced.
+            </Text>
+          ) : null}
+        </View>
+
         {notificationsEnabled === false && (
           <View backgroundColor="#330000" borderRadius="$4" padding="$3">
             <Text color="red" fontWeight="600" marginBottom="$1">
@@ -120,6 +188,15 @@ const SettingsTab: React.FC = () => {
             </Text>
           </View>
         )}
+
+        {/* Foreground silencing info */}
+        {user?.isActive ? (
+          <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$3">
+            <Text fontSize="$3" color="$color11">
+              App is active: check-in alerts are currently silenced while you use HomeAlone.
+            </Text>
+          </View>
+        ) : null}
 
         <Text fontSize="$7" fontWeight="700">
           Check-in Settings
@@ -133,12 +210,7 @@ const SettingsTab: React.FC = () => {
           <Text marginTop="$4">Loading settings...</Text>
         ) : (
           <>
-            <View
-              backgroundColor="$backgroundStrong"
-              borderRadius="$4"
-              padding="$4"
-              marginTop="$2"
-            >
+            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$2">
               <Text fontSize="$6" fontWeight="600" marginBottom="$2">
                 Check-in interval
               </Text>
@@ -162,12 +234,7 @@ const SettingsTab: React.FC = () => {
               </XStack>
             </View>
 
-            <View
-              backgroundColor="$backgroundStrong"
-              borderRadius="$4"
-              padding="$4"
-              marginTop="$4"
-            >
+            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
               <Text fontSize="$6" fontWeight="600" marginBottom="$2">
                 Emergency countdown
               </Text>
@@ -192,25 +259,21 @@ const SettingsTab: React.FC = () => {
               </XStack>
             </View>
 
-            <View
-              backgroundColor="$backgroundStrong"
-              borderRadius="$4"
-              padding="$4"
-              marginTop="$4"
-            >
+            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
               <Text fontSize="$5" fontWeight="600" marginBottom="$2">
                 How it works
               </Text>
               <Text fontSize="$3" color="$color11" marginBottom="$1">
-                1. The app monitors your activity (for example, screen unlocks).
-              </Text>
-              <Text fontSize="$3" color="$color11" marginBottom="$1">
-                2. If no activity is detected for the check-in interval, you will receive a
+                1. If no activity is detected for the check-in interval, you will receive a
                 notification asking if you are okay.
               </Text>
-              <Text fontSize="$3" color="$color11">
-                3. If you do not respond within the countdown window, your emergency contacts can be
+              <Text fontSize="$3" color="$color11" marginBottom="$1">
+                2. If you do not respond within the countdown window, your emergency contacts can be
                 notified.
+              </Text>
+              <Text fontSize="$3" color="$color11">
+                3. When DND is enabled or you are actively using the app, check-in alerts are
+                silenced.
               </Text>
             </View>
           </>

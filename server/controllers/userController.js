@@ -110,10 +110,10 @@ exports.updateCheckIn = async (req, res) => {
   }
 };
 
-// Update check-in settings (interval and countdown)
+// Update check-in settings (interval, countdown, DND)
 exports.updateSettings = async (req, res) => {
   try {
-    const { checkInIntervalHours, emergencyCountdownMinutes } = req.body;
+    const { checkInIntervalHours, emergencyCountdownMinutes, dnd } = req.body;
 
     const user = await User.findById(req.userId).select('-password');
     if (!user) {
@@ -126,13 +126,37 @@ exports.updateSettings = async (req, res) => {
     if (typeof emergencyCountdownMinutes === 'number') {
       user.emergencyCountdownMinutes = emergencyCountdownMinutes;
     }
+    if (typeof dnd === 'boolean') {
+      user.dnd = dnd;
+    }
 
-    // If the user is not in an emergency, schedule the next check-in based on the (possibly new) interval
+    // If the user is not in an emergency, schedule (or disable) the next check-in.
     if (user.checkInStatus !== 'emergency') {
-      const intervalHours = user.checkInIntervalHours ?? 2;
-      if (intervalHours > 0) {
-        const now = new Date();
-        user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+      const now = new Date();
+
+      if (user.dnd === true) {
+        // DND means: no check-in sessions / pushes should be produced.
+        user.checkInStatus = 'ok';
+        user.nextCheckInAt = null;
+
+        // If there is an active pending session, mark it OK so it doesn't escalate.
+        const pending = await CheckInSession.findOne({
+          user: req.userId,
+          status: 'pending',
+        })
+          .sort({ createdAt: -1 })
+          .exec();
+
+        if (pending) {
+          pending.status = 'ok';
+          pending.resolvedAt = now;
+          await pending.save();
+        }
+      } else {
+        const intervalHours = user.checkInIntervalHours ?? 2;
+        if (intervalHours > 0) {
+          user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+        }
       }
     }
 
@@ -142,6 +166,46 @@ exports.updateSettings = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       message: 'Error updating settings',
+      error: error.message,
+    });
+  }
+};
+
+// Update user activity state (foreground/background).
+// This is used by the scheduler to suppress check-in pushes while the user is actively using the app.
+exports.updateActivity = async (req, res) => {
+  try {
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      return res.status(400).json({ message: 'isActive must be a boolean' });
+    }
+
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const now = new Date();
+    user.isActive = isActive;
+    user.lastActiveAt = now;
+
+    // IMPORTANT: Do NOT auto-clear pending sessions here.
+    // If the user tapped a check-in notification, we want the client to be able to fetch
+    // the active session and show the "Are you okay?" modal.
+
+    await user.save();
+
+    return res.status(200).json({
+      ok: true,
+      dnd: user.dnd,
+      isActive: user.isActive,
+      lastActiveAt: user.lastActiveAt,
+      nextCheckInAt: user.nextCheckInAt,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Error updating activity state',
       error: error.message,
     });
   }
@@ -217,6 +281,10 @@ exports.sendTestNotification = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.dnd === true || user.isActive === true) {
+      return res.status(200).json({ message: 'Notifications are currently silenced (DND or active)' });
     }
 
     const result = await sendTestNotification(user);

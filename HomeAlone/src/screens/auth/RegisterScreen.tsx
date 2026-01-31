@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Input, Button, YStack, ScrollView } from 'tamagui';
+import { Text, Input, Button, YStack, ScrollView } from 'tamagui';
 import { RegisterPayload, useAuth } from '../../contexts/AuthContext';
 
 export type RegisterScreenProps = {

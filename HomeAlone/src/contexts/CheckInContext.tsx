@@ -30,7 +30,7 @@ const CheckInContext = createContext<CheckInContextValue | undefined>(undefined)
 const POLL_APP_STATE = true; // simple hook to re-check when app comes to foreground
 
 export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [activeSession, setActiveSession] = useState<CheckInSession | null>(null);
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const [showEmergencyNotice, setShowEmergencyNotice] = useState(false);
@@ -39,6 +39,8 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const activeSessionRef = useRef<CheckInSession | null>(null);
   const tokenRef = useRef<string | null>(null);
+
+  const notificationsSilenced = user?.dnd ?? false;
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -139,6 +141,8 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       const session = data.session;
       console.log('[CheckInContext] Active session received', session);
+
+
       setActiveSession(session);
 
       const deadline = new Date(session.responseDeadline).getTime();
@@ -241,27 +245,6 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
-  const handleRespondEmergency = async (id?: string, fromTimeout = false) => {
-    const sessionId = id ?? activeSession?._id;
-    if (!token || !sessionId) return;
-
-    try {
-      console.log('[CheckInContext] Sending EMERGENCY response for session', sessionId, 'fromTimeout=', fromTimeout);
-      await apiFetch(`/checkins/${sessionId}/emergency`, {
-        method: 'POST',
-        token,
-      });
-      console.log('[CheckInContext] Emergency response acknowledged by server');
-    } catch (e) {
-      console.log('[CheckInContext] Error sending emergency response', e);
-    } finally {
-      setShowEmergencyNotice(true);
-      setCountdownSeconds(null);
-      clearTimer();
-      // keep activeSession so we know why we're in emergency
-    }
-  };
-
   const handleNotOkay = async () => {
     if (!token) {
       console.log('[CheckInContext] No token available');
@@ -361,7 +344,11 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     refreshActiveSession: fetchActiveSession,
   };
 
-  const showCheckInPrompt = !!activeSession && activeSession.status === 'pending' && !showFriendsModal;
+  const showCheckInPrompt =
+    !!activeSession &&
+    activeSession.status === 'pending' &&
+    !showFriendsModal &&
+    !notificationsSilenced;
 
   return (
     <CheckInContext.Provider value={value}>

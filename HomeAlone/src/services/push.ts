@@ -1,4 +1,3 @@
-import { Alert } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import { apiFetch } from '../config/api';
 import { emitCheckInPush } from './checkInEvents';
@@ -89,16 +88,26 @@ export function setupNotificationOpenHandlers() {
   const m = getMessagingSafe();
   if (!m) return;
 
+  const maybeEmitCheckInOpen = (remoteMessage: any, source: string) => {
+    const type = remoteMessage?.data?.type;
+    if (type === 'checkin') {
+      console.log(`[push] Check-in notification opened app (${source})`, remoteMessage.data);
+      emitCheckInPush();
+    }
+  };
+
   // When app is opened from a quit state via notification
   m.getInitialNotification().then(remoteMessage => {
     if (remoteMessage) {
       console.log('[push] App opened from quit state by notification', remoteMessage.data);
+      maybeEmitCheckInOpen(remoteMessage, 'quit');
     }
   });
 
   // When app is in background and user taps notification
   m.onNotificationOpenedApp(remoteMessage => {
     console.log('[push] Notification opened app from background', remoteMessage.data);
+    maybeEmitCheckInOpen(remoteMessage, 'background');
   });
 
   // When app is in foreground and an FCM message arrives
@@ -115,9 +124,8 @@ export function setupNotificationOpenHandlers() {
       return;
     }
 
-    // For non-checkin/test notifications, fall back to a simple alert so they are visible.
-    const title = remoteMessage.notification?.title || 'Notification';
-    const body = remoteMessage.notification?.body || JSON.stringify(remoteMessage.data || {});
-    Alert.alert(title, body);
+    // While in foreground, we silence all other notifications (no in-app Alert).
+    // Keep the console log so we can still debug payloads.
+    return;
   });
 }

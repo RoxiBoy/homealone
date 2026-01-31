@@ -63,7 +63,7 @@ exports.login = async (req, res) => {
 
     // Ensure the user has a nextCheckInAt scheduled (server-driven timer)
     try {
-      if (user.checkInStatus !== 'emergency') {
+      if (user.checkInStatus !== 'emergency' && user.dnd !== true) {
         const now = new Date();
         const intervalHours = user.checkInIntervalHours ?? 2;
 
@@ -94,20 +94,24 @@ exports.login = async (req, res) => {
 
     // Return user info and token
     res.status(200).json({
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        age: user.age,
-      },
+        token,
+        user: {
+            id: user._id,
+            username: user.username,
+            name: user.name,
+            email: user.email,
+            phone: user.phone,
+            age: user.age,
+            checkInIntervalHours: user.checkInIntervalHours,
+            emergencyCountdownMinutes: user.emergencyCountdownMinutes,
+            dnd: user.dnd ?? false,
+            isActive: user.isActive ?? false,
+        },
     });
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error logging in',
-      error: error.message,
-    });
-  }
+    } catch (error) {
+        res.status(500).json({
+        message: 'Error logging in',
+        error: error.message,
+        });
+    }
 };

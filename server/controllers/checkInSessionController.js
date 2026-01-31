@@ -88,13 +88,13 @@ exports.getActiveSession = async (req, res) => {
           console.log(
             `[checkInSessionController.getActiveSession] Timer expired - sending SMS to ${priorityFriend.name} at ${fullPhoneNumber}`,
           );
-          // await sendSms(userName, fullPhoneNumber);
+          await sendSms(userName, fullPhoneNumber);
 
           // Place voice call (Twilio) to the same number as the SMS
           console.log(
             `[checkInSessionController.getActiveSession] Timer expired - placing Twilio call to ${priorityFriend.name} at ${fullPhoneNumber}`,
           );
-          // await placeEmergencyCall(userName, fullPhoneNumber, priorityFriend.name);
+          await placeEmergencyCall(userName, fullPhoneNumber, priorityFriend.name);
 
           // Send email if available
           if (priorityFriend.email) {

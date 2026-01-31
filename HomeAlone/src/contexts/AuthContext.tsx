@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from '../config/api';
 import { initPush, InitPushResult, setupNotificationOpenHandlers } from '../services/push';
@@ -18,6 +19,8 @@ export type AuthUser = {
   age?: number;
   checkInIntervalHours?: number;
   emergencyCountdownMinutes?: number;
+  dnd: boolean;
+  isActive: boolean;
 };
 
 export type RegisterPayload = {
@@ -38,12 +41,21 @@ type AuthContextValue = {
   login: (username: string, password: string) => Promise<void>;
   register: (payload: RegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (patch: Partial<AuthUser>) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 const AUTH_TOKEN_KEY = '@homealone/token';
 const AUTH_USER_KEY = '@homealone/user';
+
+const normalizeUser = (raw: any): AuthUser => {
+  return {
+    ...raw,
+    dnd: typeof raw?.dnd === 'boolean' ? raw.dnd : false,
+    isActive: typeof raw?.isActive === 'boolean' ? raw.isActive : false,
+  } as AuthUser;
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -63,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (storedToken && storedUser) {
           setToken(storedToken);
           const parsedUser = JSON.parse(storedUser);
-          setUser(parsedUser);
+          setUser(normalizeUser(parsedUser));
 
           // Also initialize push if we restored a session
           try {
@@ -88,12 +100,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const persistSession = useCallback(async (nextToken: string, nextUser: AuthUser) => {
+    const normalizedUser = normalizeUser(nextUser);
+
     setToken(nextToken);
-    setUser(nextUser);
+    setUser(normalizedUser);
 
     await Promise.all([
       AsyncStorage.setItem(AUTH_TOKEN_KEY, nextToken),
-      AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(nextUser)),
+      AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(normalizedUser)),
     ]);
 
     // Initialize push notifications once we have a valid auth token
@@ -121,19 +135,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     ]);
   }, []);
 
-  const login = useCallback(
-    async (username: string, password: string) => {
+  const login = useCallback(async (username: string, password: string) => {
       setLoading(true);
       try {
-        const data = await apiFetch<{
-          token: string;
-          user: AuthUser;
-        }>('/auth/login', {
+        const data = await apiFetch<{token: string, user: AuthUser;}>('/auth/login', {
           method: 'POST',
           body: JSON.stringify({ username, password }),
         });
 
         await persistSession(data.token, data.user);
+
+      }catch(error){
+          console.log(`[AuthContext Login] Error logging in: ${error}`)
       } finally {
         setLoading(false);
       }
@@ -141,18 +154,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [persistSession],
   );
 
-  const register = useCallback(
-    async (payload: RegisterPayload) => {
+  const register = useCallback(async (payload: RegisterPayload) => {
       setLoading(true);
       try {
-        console.log("Registering")
+        console.log("[AuthContext Registet ] Registering")
         await apiFetch<{ message: string }>('/auth/register', {
           method: 'POST',
           body: JSON.stringify(payload),
         });
 
-        // Then log them in immediately
         await login(payload.username, payload.password);
+      } catch(error){
+        console.log(`[AuthContext Regiter] Error registering user: ${error}`) 
       } finally {
         setLoading(false);
       }
@@ -164,6 +177,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await clearSession();
   }, [clearSession]);
 
+  const updateUser = useCallback(
+    async (patch: Partial<AuthUser>) => {
+      setUser(prev => {
+        if (!prev) return prev;
+        const next = normalizeUser({ ...prev, ...patch });
+        // Fire-and-forget local persistence (best-effort)
+        AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(next)).catch(e => {
+          console.log('[AuthContext] Failed to persist updated user', e);
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
+  // When logged in, report whether the app is in the foreground. While active, we periodically
+  // refresh the state so the server can suppress check-in pushes.
+  useEffect(() => {
+    if (!token) return;
+
+    let interval: NodeJS.Timeout | null = null;
+    let cancelled = false;
+
+    const postActivity = async (active: boolean) => {
+      try {
+        await apiFetch('/users/activity', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ isActive: active }),
+        });
+      } catch (e) {
+        console.log('[AuthContext] Failed to post activity state', e);
+      } finally {
+        if (!cancelled) {
+          updateUser({ isActive: active });
+        }
+      }
+    };
+
+    const setActive = (active: boolean) => {
+      postActivity(active);
+
+      if (active) {
+        if (!interval) {
+          interval = setInterval(() => postActivity(true), 60_000);
+        }
+      } else if (interval) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+
+    // Best-effort initial report
+    setActive(AppState.currentState === 'active');
+
+    const onChange = (state: AppStateStatus) => {
+      setActive(state === 'active');
+    };
+
+    const sub = AppState.addEventListener('change', onChange);
+
+    return () => {
+      cancelled = true;
+      if (interval) clearInterval(interval);
+      sub.remove();
+    };
+  }, [token, updateUser]);
+
   const value: AuthContextValue = {
     user,
     token,
@@ -173,6 +254,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     register,
     logout,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

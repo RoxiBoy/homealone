@@ -4,56 +4,9 @@ import { View, Text, Input, Button, YStack, XStack } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../config/api';
+import { COUNTRY_CODES } from '../../assets/countryCodes'
 
 const EMERGENCY_CONTACTS_KEY = '@homealone/emergency-contacts';
-
-const COUNTRY_CODES = [
-  { code: '+1', name: 'USA/Canada', flag: '🇺🇸' },
-  { code: '+44', name: 'United Kingdom', flag: '🇬🇧' },
-  { code: '+61', name: 'Australia', flag: '🇦🇺' },
-  { code: '+81', name: 'Japan', flag: '🇯🇵' },
-  { code: '+86', name: 'China', flag: '🇨🇳' },
-  { code: '+33', name: 'France', flag: '🇫🇷' },
-  { code: '+49', name: 'Germany', flag: '🇩🇪' },
-  { code: '+39', name: 'Italy', flag: '🇮🇹' },
-  { code: '+34', name: 'Spain', flag: '🇪🇸' },
-  { code: '+91', name: 'India', flag: '🇮🇳' },
-  { code: '+977', name: 'Nepal', flag: '🇳🇵' },
-  { code: '+7', name: 'Russia', flag: '🇷🇺' },
-  { code: '+52', name: 'Mexico', flag: '🇲🇽' },
-  { code: '+55', name: 'Brazil', flag: '🇧🇷' },
-  { code: '+82', name: 'South Korea', flag: '🇰🇷' },
-  { code: '+27', name: 'South Africa', flag: '🇿🇦' },
-  { code: '+64', name: 'New Zealand', flag: '🇳🇿' },
-  { code: '+65', name: 'Singapore', flag: '🇸🇬' },
-  { code: '+971', name: 'UAE', flag: '🇦🇪' },
-  { code: '+966', name: 'Saudi Arabia', flag: '🇸🇦' },
-  { code: '+31', name: 'Netherlands', flag: '🇳🇱' },
-  { code: '+41', name: 'Switzerland', flag: '🇨🇭' },
-  { code: '+46', name: 'Sweden', flag: '🇸🇪' },
-  { code: '+47', name: 'Norway', flag: '🇳🇴' },
-  { code: '+45', name: 'Denmark', flag: '🇩🇰' },
-  { code: '+358', name: 'Finland', flag: '🇫🇮' },
-  { code: '+32', name: 'Belgium', flag: '🇧🇪' },
-  { code: '+43', name: 'Austria', flag: '🇦🇹' },
-  { code: '+48', name: 'Poland', flag: '🇵🇱' },
-  { code: '+351', name: 'Portugal', flag: '🇵🇹' },
-  { code: '+30', name: 'Greece', flag: '🇬🇷' },
-  { code: '+90', name: 'Turkey', flag: '🇹🇷' },
-  { code: '+20', name: 'Egypt', flag: '🇪🇬' },
-  { code: '+234', name: 'Nigeria', flag: '🇳🇬' },
-  { code: '+254', name: 'Kenya', flag: '🇰🇪' },
-  { code: '+62', name: 'Indonesia', flag: '🇮🇩' },
-  { code: '+63', name: 'Philippines', flag: '🇵🇭' },
-  { code: '+66', name: 'Thailand', flag: '🇹🇭' },
-  { code: '+60', name: 'Malaysia', flag: '🇲🇾' },
-  { code: '+84', name: 'Vietnam', flag: '🇻🇳' },
-  { code: '+92', name: 'Pakistan', flag: '🇵🇰' },
-  { code: '+880', name: 'Bangladesh', flag: '🇧🇩' },
-  { code: '+94', name: 'Sri Lanka', flag: '🇱🇰' },
-  { code: '+98', name: 'Iran', flag: '🇮🇷' },
-  { code: '+972', name: 'Israel', flag: '🇮🇱' },
-];
 
 export type EmergencyContact = {
   _id?: string;
@@ -65,14 +18,6 @@ export type EmergencyContact = {
   priority: number; // 1-3
 };
 
-const emptyContact = (priority: number): EmergencyContact => ({
-  priority,
-  name: '',
-  countryCode: '+1',
-  phone: '',
-  email: '',
-  relationship: '',
-});
 
 const EmergencyContactsTab: React.FC = () => {
   const { token } = useAuth();
@@ -120,7 +65,7 @@ const EmergencyContactsTab: React.FC = () => {
         const sorted = [...remote].sort((a, b) => (a.priority ?? 3) - (b.priority ?? 3));
         setContacts(sorted);
         await AsyncStorage.setItem(EMERGENCY_CONTACTS_KEY, JSON.stringify(sorted));
-      } catch (e) {
+      } catch {
         console.warn('[EmergencyContactsTab] Failed to load from server, falling back to device');
         try {
           const stored = await AsyncStorage.getItem(EMERGENCY_CONTACTS_KEY);
