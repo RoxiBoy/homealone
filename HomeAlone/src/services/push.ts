@@ -1,6 +1,15 @@
 import messaging from '@react-native-firebase/messaging';
+import notifee, { EventType } from '@notifee/react-native';
+import { Platform } from 'react-native';
 import { apiFetch } from '../config/api';
 import { emitCheckInPush } from './checkInEvents';
+import {
+  CHECKIN_NOTIFICATION_ID,
+  ensureCheckInChannel,
+  showFullScreenCheckInAlert,
+} from './fullScreenCheckIn';
+
+let handlersBound = false;
 
 export type InitPushResult = {
   enabled: boolean;
@@ -36,6 +45,8 @@ export async function initPush(token: string | null): Promise<InitPushResult> {
   }
 
   try {
+    await notifee.requestPermission();
+
     const authStatus = await m.requestPermission();
     const enabled =
       authStatus === messaging.AuthorizationStatus.AUTHORIZED ||
@@ -53,6 +64,8 @@ export async function initPush(token: string | null): Promise<InitPushResult> {
     }
 
     console.log('[push] FCM token', fcmToken);
+
+    await ensureCheckInChannel();
 
     await apiFetch('/users/device-token', {
       method: 'PUT',
@@ -88,6 +101,11 @@ export function setupNotificationOpenHandlers() {
   const m = getMessagingSafe();
   if (!m) return;
 
+  if (handlersBound) {
+    return;
+  }
+  handlersBound = true;
+
   const maybeEmitCheckInOpen = (remoteMessage: any, source: string) => {
     const type = remoteMessage?.data?.type;
     if (type === 'checkin') {
@@ -111,12 +129,17 @@ export function setupNotificationOpenHandlers() {
   });
 
   // When app is in foreground and an FCM message arrives
-  m.onMessage(remoteMessage => {
+  m.onMessage(async remoteMessage => {
     console.log('[push] Foreground FCM message', remoteMessage.notification, remoteMessage.data);
 
     const type = remoteMessage.data?.type;
 
     if (type === 'checkin') {
+      const sessionId =
+        typeof remoteMessage.data?.sessionId === 'string'
+          ? remoteMessage.data.sessionId
+          : undefined;
+      await showFullScreenCheckInAlert(sessionId);
       // Notify CheckInContext so it can fetch the active session and show the in-app
       // "Are you okay?" modal. The OS-level notification will already be shown by FCM
       // when the app is backgrounded/killed; this just wires the foreground case.
@@ -128,4 +151,23 @@ export function setupNotificationOpenHandlers() {
     // Keep the console log so we can still debug payloads.
     return;
   });
+
+  if (Platform.OS === 'android') {
+    notifee.onForegroundEvent(({ type, detail }: any) => {
+      if (type === EventType.PRESS) {
+        const payloadType = detail.notification?.data?.type;
+        if (payloadType === 'checkin') {
+          notifee.cancelNotification(CHECKIN_NOTIFICATION_ID).catch(() => {});
+          emitCheckInPush();
+        }
+      }
+    });
+
+    notifee.getInitialNotification().then((initial: any) => {
+      const payloadType = initial?.notification?.data?.type;
+      if (payloadType === 'checkin') {
+        emitCheckInPush();
+      }
+    });
+  }
 }

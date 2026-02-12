@@ -4,6 +4,7 @@ import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { useAuth } from './AuthContext';
 import { apiFetch } from '../config/api';
 import { onCheckInPush } from '../services/checkInEvents';
+import { clearFullScreenCheckInAlert } from '../services/fullScreenCheckIn';
 
 export type CheckInSession = {
   _id: string;
@@ -135,6 +136,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setActiveSession(null);
         setCountdownSeconds(null);
         setShowEmergencyNotice(false);
+        clearFullScreenCheckInAlert();
         clearTimer();
         return;
       }
@@ -238,6 +240,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error sending OK response', e);
     } finally {
+      clearFullScreenCheckInAlert();
       setActiveSession(null);
       setCountdownSeconds(null);
       setShowEmergencyNotice(false);
@@ -265,6 +268,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setFriends(friendsList || []);
       setShowFriendsModal(true);
+      clearFullScreenCheckInAlert();
       setCountdownSeconds(null);
       clearTimer();
       
@@ -274,6 +278,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('[CheckInContext] Error details:', JSON.stringify(err, null, 2));
       setFriends([]);
       setShowFriendsModal(true);
+      clearFullScreenCheckInAlert();
     }
   };
 
@@ -288,6 +293,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleImSafe = async () => {
     if (!token || !activeSession) {
+      clearFullScreenCheckInAlert();
       setShowFriendsModal(false);
       setActiveSession(null);
       setCountdownSeconds(null);
@@ -305,6 +311,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error marking session as OK:', e);
     } finally {
+      clearFullScreenCheckInAlert();
       setShowFriendsModal(false);
       setActiveSession(null);
       setCountdownSeconds(null);
@@ -315,6 +322,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const handleClearEmergency = async () => {
     if (!token) {
+      clearFullScreenCheckInAlert();
       setShowEmergencyNotice(false);
       setActiveSession(null);
       setCountdownSeconds(null);
@@ -332,6 +340,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error clearing emergency status', e);
     } finally {
+      clearFullScreenCheckInAlert();
       setShowEmergencyNotice(false);
       setActiveSession(null);
       setCountdownSeconds(null);

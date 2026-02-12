@@ -36,24 +36,15 @@ async function sendCheckInNotification(user, session) {
   const body = {
     message: {
       token: user.fcmToken,
-      notification: {
-        title: 'HomeAlone check-in',
-        body: 'Are you okay? Tap to respond.',
-      },
       data: {
         type: 'checkin',
         sessionId: session._id.toString(),
+        alertMode: 'full_screen',
       },
       android: {
         priority: 'HIGH',
-        notification: {
-          channel_id: 'checkin-alerts',
-          sound: 'default',
-          // HTTP v1 expects enum strings like PUBLIC/PRIVATE/SECRET, not VISIBILITY_PUBLIC.
-          visibility: 'PUBLIC',
-          default_vibrate_timings: true,
-          default_light_settings: true,
-        },
+        ttl: '30s',
+        direct_boot_ok: true,
       },
     },
   };
