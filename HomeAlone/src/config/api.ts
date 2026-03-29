@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'http://10.0.2.2:3000/api';
+export const API_BASE_URL = 'http://3.27.13.168:3000/api';
 
 export type ApiFetchOptions = RequestInit & {
   token?: string | null;
