@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema(
         type: Date,
         default: null,
     },
+    lastUsageResetAt: {
+        type: Date,
+        default: null,
+    },
     checkInIntervalHours: {
         type: Number,
         default: 2,
@@ -59,6 +63,10 @@ const userSchema = new mongoose.Schema(
         default: 2,
     },
     nextCheckInAt: {
+        type: Date,
+        default: null,
+    },
+    checkInHardDeadlineAt: {
         type: Date,
         default: null,
     },

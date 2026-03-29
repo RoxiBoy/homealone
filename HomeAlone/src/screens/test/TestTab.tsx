@@ -4,6 +4,7 @@ import { View, Text, Button, YStack, Input } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../config/api';
+import { initPush } from '../../services/push';
 
 const TEST_SETTINGS_KEY = '@homealone/test-settings';
 
@@ -28,16 +29,18 @@ const TestTab: React.FC = () => {
 
     setSending(true);
     try {
+      const pushInit = await initPush(token);
+      appendLog(`Push init: enabled=${pushInit.enabled}${pushInit.reason ? ` (${pushInit.reason})` : ''}`);
+
       appendLog('Requesting backend to send a basic FCM test notification...');
 
-      await apiFetch('/users/test-notification', {
+      const result = await apiFetch<{ message?: string; reason?: string }>('/users/test-notification', {
         method: 'POST',
         token,
       });
 
-      appendLog(
-        'Backend accepted test notification request. If FCM is configured correctly and your device has registered an FCM token, you should see a push notification shortly.',
-      );
+      appendLog(`Server response: ${result?.message || 'accepted'}${result?.reason ? ` (reason=${result.reason})` : ''}`);
+      appendLog('If notifications are enabled, you should see a test notification shortly.');
     } catch (e: any) {
       appendLog(`Error sending test notification: ${e?.message || String(e)}`);
     } finally {
@@ -70,19 +73,57 @@ const TestTab: React.FC = () => {
         `Saving short check-in settings: interval=${intervalM}m (${intervalHours}h), countdown=${countdownS}s (${countdownMinutes}m)`,
       );
 
+      if (intervalM < 15) {
+        appendLog(
+          'Note: interval < 15 minutes is only good for notification smoke tests. Android background usage polling is throttled, so inactivity-based postponing cannot be validated reliably at this interval.',
+        );
+      }
+
       await AsyncStorage.setItem(
         TEST_SETTINGS_KEY,
         JSON.stringify({ checkInIntervalHours: intervalHours, emergencyCountdownMinutes: countdownMinutes }),
       );
 
-      await apiFetch('/users/settings', {
+      // Test helper: clear emergency/pending state so a fresh short timer can arm reliably.
+      try {
+        await apiFetch('/users/check-in-status', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ status: 'ok' }),
+        });
+      } catch (e: any) {
+        appendLog(`Non-blocking: could not clear emergency state (${e?.message || String(e)})`);
+      }
+
+      try {
+        const active = await apiFetch<{ session: { _id: string; status: string } | null }>('/checkins/active', {
+          method: 'GET',
+          token,
+        });
+        if (active.session?.status === 'pending') {
+          await apiFetch(`/checkins/${active.session._id}/ok`, {
+            method: 'POST',
+            token,
+          });
+          appendLog('Cleared existing pending check-in session before arming.');
+        }
+      } catch (e: any) {
+        appendLog(`Non-blocking: could not inspect active session (${e?.message || String(e)})`);
+      }
+
+      const updatedUser = await apiFetch<any>('/users/settings', {
         method: 'PUT',
         token,
         body: JSON.stringify({
           checkInIntervalHours: intervalHours,
           emergencyCountdownMinutes: countdownMinutes,
+          dnd: false,
         }),
       });
+
+      appendLog(
+        `Server settings saved: dnd=${updatedUser?.dnd}, status=${updatedUser?.checkInStatus}, nextCheckInAt=${updatedUser?.nextCheckInAt || 'null'}`,
+      );
 
       const delayMs = intervalM * 60 * 1000;
       const fireAt = new Date(Date.now() + delayMs);
@@ -105,6 +146,8 @@ const TestTab: React.FC = () => {
         <Text fontSize="$4" color="$color11">
           Use this screen to (1) send a basic FCM test notification and (2) arm a very short
           server-driven check-in interval so you can see the full "Are you okay?" flow quickly.
+          Very short intervals (for example 0.1 minute) are not valid for testing inactivity-based
+          postponing in background.
         </Text>
 
         <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4">

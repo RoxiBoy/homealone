@@ -3,8 +3,8 @@ const User = require('../models/User');
 const Friend = require('../models/Friend');
 const { sendSms } = require('../services/smsService');
 const { placeEmergencyCall } = require('../services/voiceCallService');
-const { sendEmergencyEmail } = require('../services/emailService');
 const { sendEmail } = require('../services/brevoEmailService')
+const { armCheckInWindow } = require('../services/checkInWindowService');
 
 exports.startSession = async (req, res) => {
   try {
@@ -172,11 +172,8 @@ exports.respondOk = async (req, res) => {
     user.lastCheckIn = now;
     user.checkInStatus = 'ok';
 
-    // Schedule the next check-in based on the user's interval
-    const intervalHours = user.checkInIntervalHours ?? 2;
-    if (intervalHours > 0) {
-      user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
-    }
+    // Schedule the next window and reset hard-deadline cap.
+    armCheckInWindow(user, now);
 
     await user.save();
 

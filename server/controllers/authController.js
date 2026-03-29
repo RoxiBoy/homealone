@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { armCheckInWindow, getHardDeadlineMs } = require('../services/checkInWindowService');
 
 // Register a new user
 exports.register = async (req, res) => {
@@ -65,15 +66,21 @@ exports.login = async (req, res) => {
     try {
       if (user.checkInStatus !== 'emergency' && user.dnd !== true) {
         const now = new Date();
-        const intervalHours = user.checkInIntervalHours ?? 2;
-
-        if (intervalHours > 0) {
-          // If nothing scheduled yet or the scheduled time is in the past, schedule a new one
-          if (!user.nextCheckInAt || user.nextCheckInAt <= now) {
-            user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
+        // If nothing scheduled yet or the scheduled time is in the past, schedule a new one.
+        if (!user.nextCheckInAt || user.nextCheckInAt <= now) {
+          const result = armCheckInWindow(user, now);
+          if (result) {
             await user.save();
-            console.log('[authController.login] Scheduled nextCheckInAt for user', user._id.toString(), 'at', user.nextCheckInAt.toISOString());
+            console.log(
+              '[authController.login] Scheduled nextCheckInAt for user',
+              user._id.toString(),
+              'at',
+              result.nextCheckInAt.toISOString(),
+            );
           }
+        } else if (!user.checkInHardDeadlineAt) {
+          user.checkInHardDeadlineAt = new Date(user.nextCheckInAt.getTime() + getHardDeadlineMs());
+          await user.save();
         }
       }
     } catch (scheduleErr) {

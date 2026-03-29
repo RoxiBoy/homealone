@@ -24,6 +24,9 @@ router.post('/check-in-status', userController.updateCheckInStatus);
 // Update check-in settings (interval, countdown, DND)
 router.put('/settings', userController.updateSettings);
 
+// Reset/snooze check-in window after detecting recent device usage
+router.post('/check-in-reset', userController.resetCheckInWindow);
+
 // Report whether the app is actively being used (foreground/background)
 router.post('/activity', userController.updateActivity);
 

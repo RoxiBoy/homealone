@@ -3,12 +3,18 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from '../config/api';
 import { initPush, InitPushResult, setupNotificationOpenHandlers } from '../services/push';
+import {
+  configureActivityResetWorker,
+  ensureUsageAccessOrPrompt,
+  runActivityResetCheck,
+} from '../services/activityResetWorker';
 
 export type AuthUser = {
   id: string;
@@ -63,6 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [initializing, setInitializing] = useState(true);
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean | null>(null);
+  const lastReportedActiveRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -192,58 +199,132 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     [],
   );
 
-  // When logged in, report whether the app is in the foreground. While active, we periodically
-  // refresh the state so the server can suppress check-in pushes.
   useEffect(() => {
     if (!token) return;
 
-    let interval: NodeJS.Timeout | null = null;
-    let cancelled = false;
+    console.log('[AuthContext][activity] watcher start');
 
-    const postActivity = async (active: boolean) => {
+    configureActivityResetWorker();
+    ensureUsageAccessOrPrompt();
+
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let cancelled = false;
+    let ticking = false;
+    let tickCount = 0;
+
+    const intervalHours = Number(user?.checkInIntervalHours || 2);
+    const intervalMs = Number.isFinite(intervalHours) && intervalHours > 0 ? intervalHours * 60 * 60 * 1000 : 2 * 60 * 60 * 1000;
+    const pollMs = Math.max(2000, Math.min(60000, Math.floor(intervalMs / 2)));
+    console.log(`[AuthContext][activity] computed intervalMs=${intervalMs} pollMs=${pollMs}`);
+
+    const syncActivityState = async (active: boolean) => {
+      if (lastReportedActiveRef.current === active) {
+        console.log(`[AuthContext][activity] sync skip unchanged active=${active}`);
+        return;
+      }
+
+      console.log(
+        `[AuthContext][activity] sync start from=${lastReportedActiveRef.current} to=${active}`,
+      );
       try {
         await apiFetch('/users/activity', {
           method: 'POST',
           token,
           body: JSON.stringify({ isActive: active }),
         });
+        console.log(`[AuthContext][activity] sync success active=${active}`);
       } catch (e) {
-        console.log('[AuthContext] Failed to post activity state', e);
+        console.log('[AuthContext] Failed to sync activity state', e);
       } finally {
         if (!cancelled) {
+          lastReportedActiveRef.current = active;
           updateUser({ isActive: active });
+          console.log(`[AuthContext][activity] sync local state updated active=${active}`);
         }
       }
     };
 
-    const setActive = (active: boolean) => {
-      postActivity(active);
+    const tick = async () => {
+      if (ticking || cancelled) return;
+      ticking = true;
+      tickCount += 1;
+      const tickId = `fg-${tickCount}-${Date.now()}`;
+      console.log(`[AuthContext][activity][${tickId}] tick start`);
+      try {
+        const result = await runActivityResetCheck({
+          tokenOverride: token,
+          forceActive: true,
+          source: 'auth-foreground-tick',
+        });
+        console.log(
+          `[AuthContext][activity][${tickId}] tick result`,
+          JSON.stringify(result),
+        );
+        await syncActivityState(result.active);
 
-      if (active) {
-        if (!interval) {
-          interval = setInterval(() => postActivity(true), 60_000);
+        if (!result.active && result.reason === 'usage-access-not-granted') {
+          console.log(
+            '[AuthContext] Usage access not granted; activity reset is disabled until permission is enabled.',
+          );
         }
-      } else if (interval) {
-        clearInterval(interval);
-        interval = null;
+      } catch (e) {
+        console.log('[AuthContext] Foreground activity reset tick failed', e);
+      } finally {
+        ticking = false;
+        console.log(`[AuthContext][activity][${tickId}] tick end`);
       }
     };
 
-    // Best-effort initial report
-    setActive(AppState.currentState === 'active');
-
-    const onChange = (state: AppStateStatus) => {
-      setActive(state === 'active');
+    const startPolling = () => {
+      if (interval) return;
+      console.log(`[AuthContext][activity] startPolling pollMs=${pollMs}`);
+      tick();
+      interval = setInterval(tick, pollMs);
     };
 
-    const sub = AppState.addEventListener('change', onChange);
+    const stopPolling = () => {
+      if (!interval) return;
+      console.log('[AuthContext][activity] stopPolling');
+      clearInterval(interval);
+      interval = null;
+    };
+
+    // Poll only while app is foregrounded to minimize battery usage.
+    if (AppState.currentState === 'active') {
+      console.log('[AuthContext][activity] initial appState=active');
+      startPolling();
+    } else {
+      console.log(`[AuthContext][activity] initial appState=${AppState.currentState}`);
+    }
+
+    const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
+      console.log(`[AuthContext][activity] AppState changed -> ${state}`);
+      if (state === 'active') {
+        startPolling();
+      } else {
+        stopPolling();
+        runActivityResetCheck({
+          tokenOverride: token,
+          source: `auth-appstate-${state}`,
+        }).catch(e => {
+          console.log('[AuthContext] Background transition reset check failed', e);
+        });
+        syncActivityState(false).catch(e => {
+          console.log('[AuthContext] Failed to sync inactive state on AppState change', e);
+        });
+      }
+    });
 
     return () => {
+      console.log('[AuthContext][activity] watcher cleanup');
       cancelled = true;
-      if (interval) clearInterval(interval);
+      stopPolling();
+      syncActivityState(false).catch(e => {
+        console.log('[AuthContext] Failed to sync inactive state on cleanup', e);
+      });
       sub.remove();
     };
-  }, [token, updateUser]);
+  }, [token, user?.checkInIntervalHours, updateUser]);
 
   const value: AuthContextValue = {
     user,

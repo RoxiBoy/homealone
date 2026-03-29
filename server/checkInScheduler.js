@@ -34,29 +34,9 @@ async function schedulerTick() {
           console.log('[CheckInScheduler] DND enabled - skipping check-in for user', user._id.toString());
           user.checkInStatus = 'ok';
           user.nextCheckInAt = null;
+          user.checkInHardDeadlineAt = null;
           await user.save();
           continue;
-        }
-
-        // 2) Foreground usage: silence check-in alerts while user is actively using the app
-        const ACTIVE_STALE_MS = 90 * 1000;
-        const lastActiveAt = user.lastActiveAt ? new Date(user.lastActiveAt).getTime() : 0;
-        const isActiveFresh = user.isActive === true && lastActiveAt && now.getTime() - lastActiveAt <= ACTIVE_STALE_MS;
-
-        if (isActiveFresh) {
-          console.log('[CheckInScheduler] User is active - postponing check-in for user', user._id.toString());
-          user.checkInStatus = 'ok';
-          user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
-          await user.save();
-          continue;
-        } else if (user.isActive === true) {
-          // If the app never reported background (crash/etc), don't block check-ins forever.
-          user.isActive = false;
-          try {
-            await user.save();
-          } catch (e) {
-            console.warn('[CheckInScheduler] Failed to persist isActive=false for user', user._id.toString(), e);
-          }
         }
 
         // Avoid creating duplicate pending sessions, but expire stale ones so a fresh
@@ -105,6 +85,7 @@ async function schedulerTick() {
 
         user.checkInStatus = 'pending';
         user.nextCheckInAt = null; // next will be scheduled when user confirms OK
+        user.checkInHardDeadlineAt = null;
         await user.save();
 
         console.log(

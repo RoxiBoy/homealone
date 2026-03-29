@@ -139,16 +139,37 @@ export function setupNotificationOpenHandlers() {
         typeof remoteMessage.data?.sessionId === 'string'
           ? remoteMessage.data.sessionId
           : undefined;
+      // Foreground does not auto-show FCM notifications on Android; show explicit full-screen alert.
       await showFullScreenCheckInAlert(sessionId);
       // Notify CheckInContext so it can fetch the active session and show the in-app
-      // "Are you okay?" modal. The OS-level notification will already be shown by FCM
-      // when the app is backgrounded/killed; this just wires the foreground case.
+      // "Are you okay?" modal.
       emitCheckInPush();
       return;
     }
 
-    // While in foreground, we silence all other notifications (no in-app Alert).
-    // Keep the console log so we can still debug payloads.
+    if (type === 'test') {
+      const channelId = await ensureCheckInChannel();
+      await notifee.displayNotification({
+        title: remoteMessage.notification?.title || 'HomeAlone test notification',
+        body:
+          remoteMessage.notification?.body ||
+          'If you see this, FCM is configured correctly.',
+        data: {
+          type: 'test',
+        },
+        android: {
+          channelId,
+          sound: 'alarm',
+          pressAction: {
+            id: 'default',
+            launchActivity: 'default',
+          },
+        },
+      });
+      return;
+    }
+
+    // For other foreground messages, keep silent and just log.
     return;
   });
 

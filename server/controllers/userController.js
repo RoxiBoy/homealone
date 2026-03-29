@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Friend = require('../models/Friend');
 const { sendTestNotification } = require('../services/pushService');
 const CheckInSession = require('../models/CheckInSession');
+const { armCheckInWindow, getIntervalMs, getHardDeadlineMs } = require('../services/checkInWindowService');
 
 // Get user profile
 exports.getProfile = async (req, res) => {
@@ -138,6 +139,7 @@ exports.updateSettings = async (req, res) => {
         // DND means: no check-in sessions / pushes should be produced.
         user.checkInStatus = 'ok';
         user.nextCheckInAt = null;
+        user.checkInHardDeadlineAt = null;
 
         // If there is an active pending session, mark it OK so it doesn't escalate.
         const pending = await CheckInSession.findOne({
@@ -153,10 +155,7 @@ exports.updateSettings = async (req, res) => {
           await pending.save();
         }
       } else {
-        const intervalHours = user.checkInIntervalHours ?? 2;
-        if (intervalHours > 0) {
-          user.nextCheckInAt = new Date(now.getTime() + intervalHours * 60 * 60 * 1000);
-        }
+        armCheckInWindow(user, now);
       }
     }
 
@@ -171,8 +170,7 @@ exports.updateSettings = async (req, res) => {
   }
 };
 
-// Update user activity state (foreground/background).
-// This is used by the scheduler to suppress check-in pushes while the user is actively using the app.
+// Legacy activity state endpoint (still available for clients).
 exports.updateActivity = async (req, res) => {
   try {
     const { isActive } = req.body;
@@ -190,10 +188,6 @@ exports.updateActivity = async (req, res) => {
     user.isActive = isActive;
     user.lastActiveAt = now;
 
-    // IMPORTANT: Do NOT auto-clear pending sessions here.
-    // If the user tapped a check-in notification, we want the client to be able to fetch
-    // the active session and show the "Are you okay?" modal.
-
     await user.save();
 
     return res.status(200).json({
@@ -207,6 +201,135 @@ exports.updateActivity = async (req, res) => {
     return res.status(500).json({
       message: 'Error updating activity state',
       error: error.message,
+    });
+  }
+};
+
+// Reset/snooze the active check-in window when recent device usage is detected.
+// Backend remains source-of-truth and enforces a hard deadline cap.
+exports.resetCheckInWindow = async (req, res) => {
+  const requestId =
+    typeof req.body?.requestId === 'string' && req.body.requestId
+      ? req.body.requestId
+      : `srv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const logPrefix = `[userController.resetCheckInWindow][${requestId}]`;
+
+  try {
+    const { lastTimeUsed, thresholdMs, packageName, forceActive, source } = req.body || {};
+    const now = new Date();
+    console.log(
+      `${logPrefix} start userId=${req.userId} source=${source || 'unknown'} packageName=${
+        packageName || 'unknown'
+      } forceActive=${Boolean(forceActive)} now=${now.toISOString()} lastTimeUsed=${
+        typeof lastTimeUsed === 'number' ? new Date(lastTimeUsed).toISOString() : 'n/a'
+      } thresholdMs=${typeof thresholdMs === 'number' ? thresholdMs : 'n/a'}`,
+    );
+
+    const user = await User.findById(req.userId).select('-password');
+    if (!user) {
+      console.log(`${logPrefix} abort reason=user-not-found`);
+      return res.status(404).json({ message: 'User not found', requestId });
+    }
+
+    console.log(
+      `${logPrefix} userState checkInStatus=${user.checkInStatus} dnd=${user.dnd} nextCheckInAt=${
+        user.nextCheckInAt ? user.nextCheckInAt.toISOString() : 'null'
+      } hardDeadlineAt=${user.checkInHardDeadlineAt ? user.checkInHardDeadlineAt.toISOString() : 'null'}`,
+    );
+
+    if (user.dnd === true) {
+      console.log(`${logPrefix} ignore reason=dnd-enabled`);
+      return res
+        .status(200)
+        .json({ ok: false, ignored: true, reason: 'dnd-enabled', requestId });
+    }
+
+    if (user.checkInStatus === 'emergency') {
+      console.log(`${logPrefix} ignore reason=user-in-emergency`);
+      return res
+        .status(200)
+        .json({ ok: false, ignored: true, reason: 'user-in-emergency', requestId });
+    }
+
+    const pending = await CheckInSession.findOne({
+      user: req.userId,
+      status: 'pending',
+    })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (pending) {
+      console.log(
+        `${logPrefix} ignore reason=pending-session-active sessionId=${pending._id.toString()} responseDeadline=${pending.responseDeadline.toISOString()}`,
+      );
+      return res
+        .status(200)
+        .json({ ok: false, ignored: true, reason: 'pending-session-active', requestId });
+    }
+
+    const intervalMs = getIntervalMs(user.checkInIntervalHours);
+    if (!intervalMs) {
+      console.log(
+        `${logPrefix} abort reason=invalid-checkin-interval checkInIntervalHours=${user.checkInIntervalHours}`,
+      );
+      return res.status(400).json({ message: 'Invalid check-in interval', requestId });
+    }
+    console.log(
+      `${logPrefix} interval computed intervalMs=${intervalMs} checkInIntervalHours=${user.checkInIntervalHours}`,
+    );
+
+    // Optional guardrail from client-reported usage snapshot.
+    if (typeof lastTimeUsed === 'number' && typeof thresholdMs === 'number') {
+      const ageMs = now.getTime() - lastTimeUsed;
+      console.log(`${logPrefix} usage recency ageMs=${ageMs} thresholdMs=${thresholdMs}`);
+      if (ageMs > thresholdMs) {
+        console.log(`${logPrefix} ignore reason=usage-not-recent`);
+        return res
+          .status(200)
+          .json({ ok: false, ignored: true, reason: 'usage-not-recent', requestId });
+      }
+    }
+
+    if (typeof lastTimeUsed === 'number' && user.lastUsageResetAt && !forceActive) {
+      const lastResetMs = user.lastUsageResetAt.getTime();
+      if (lastTimeUsed <= lastResetMs) {
+        console.log(
+          `${logPrefix} ignore reason=usage-not-new lastTimeUsed=${new Date(lastTimeUsed).toISOString()} lastUsageResetAt=${user.lastUsageResetAt.toISOString()}`,
+        );
+        return res
+          .status(200)
+          .json({ ok: false, ignored: true, reason: 'usage-not-new', requestId });
+      }
+    }
+
+    const previousNextCheckInAt = user.nextCheckInAt ? new Date(user.nextCheckInAt) : null;
+    const proposedNextCheckInAt = new Date(now.getTime() + intervalMs);
+    user.nextCheckInAt = proposedNextCheckInAt;
+    user.checkInHardDeadlineAt = new Date(proposedNextCheckInAt.getTime() + getHardDeadlineMs());
+    if (typeof lastTimeUsed === 'number') {
+      user.lastUsageResetAt = new Date(lastTimeUsed);
+    }
+    await user.save();
+    console.log(
+      `${logPrefix} success nextCheckInAtUpdated from=${
+        previousNextCheckInAt ? previousNextCheckInAt.toISOString() : 'null'
+      } to=${user.nextCheckInAt.toISOString()} hardDeadlineAt=${
+        user.checkInHardDeadlineAt ? user.checkInHardDeadlineAt.toISOString() : 'null'
+      }`,
+    );
+
+    return res.status(200).json({
+      ok: true,
+      nextCheckInAt: user.nextCheckInAt,
+      hardDeadlineAt: user.checkInHardDeadlineAt,
+      requestId,
+    });
+  } catch (error) {
+    console.error(`${logPrefix} error`, error);
+    return res.status(500).json({
+      message: 'Error resetting check-in window',
+      error: error.message,
+      requestId,
     });
   }
 };
@@ -283,8 +406,8 @@ exports.sendTestNotification = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.dnd === true || user.isActive === true) {
-      return res.status(200).json({ message: 'Notifications are currently silenced (DND or active)' });
+    if (user.dnd === true) {
+      return res.status(200).json({ message: 'Notifications are currently silenced (DND enabled)' });
     }
 
     const result = await sendTestNotification(user);

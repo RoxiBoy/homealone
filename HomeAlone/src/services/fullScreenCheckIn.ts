@@ -5,7 +5,9 @@ import notifee, {
   AndroidVisibility,
 } from '@notifee/react-native';
 
-const CHECKIN_CHANNEL_ID = 'checkin-alerts';
+// Versioned channel ID forces Android to create a fresh channel with sound settings.
+// Existing channels keep old settings and cannot be mutated reliably.
+const CHECKIN_CHANNEL_ID = 'checkin-alerts-alarm-v2';
 export const CHECKIN_NOTIFICATION_ID = 'homealone-checkin-alert';
 
 export async function ensureCheckInChannel(): Promise<string> {
@@ -18,7 +20,7 @@ export async function ensureCheckInChannel(): Promise<string> {
     name: 'Check-in Alerts',
     description: 'Critical HomeAlone check-in alerts',
     importance: AndroidImportance.HIGH,
-    sound: 'default',
+    sound: 'alarm',
     vibration: true,
     lights: true,
   });
@@ -53,7 +55,7 @@ export async function showFullScreenCheckInAlert(sessionId?: string): Promise<vo
       fullScreenAction: {
         id: 'default',
       },
-      sound: 'default',
+      sound: 'alarm',
       vibrationPattern: [300, 600, 300, 600],
       timestamp: Date.now(),
       showTimestamp: true,

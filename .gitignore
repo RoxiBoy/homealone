@@ -2,8 +2,7 @@
 /other/*
 /assests
 emailService.js
-**/.git
-google-services.json
+**/.git google-services.json
 homealone-7ea6b-firebase-adminsdk-fbsvc-2c1bed5df8.json
 WARP.md
 
@@ -88,3 +87,10 @@ coverage/
 # Misc
 ##################################
 *.tgz
+
+
+# opencode tmps
+tmp/*
+*/tmp/*
+
+HomeAlone/Android/app/google-services.json

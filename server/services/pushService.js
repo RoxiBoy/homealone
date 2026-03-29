@@ -32,6 +32,11 @@ async function sendCheckInNotification(user, session) {
   }
 
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+  const nowMs = Date.now();
+  const deadlineMs = session?.responseDeadline ? new Date(session.responseDeadline).getTime() : nowMs + 2 * 60 * 1000;
+  const secondsUntilDeadline = Math.max(30, Math.round((deadlineMs - nowMs) / 1000));
+  // Keep message alive long enough to survive short doze delays.
+  const ttlSeconds = Math.max(120, Math.min(secondsUntilDeadline + 120, 1800));
 
   const body = {
     message: {
@@ -40,11 +45,14 @@ async function sendCheckInNotification(user, session) {
         type: 'checkin',
         sessionId: session._id.toString(),
         alertMode: 'full_screen',
+        title: 'HomeAlone check-in',
+        body: 'Are you okay? Tap to respond now.',
       },
       android: {
         priority: 'HIGH',
-        ttl: '30s',
+        ttl: `${ttlSeconds}s`,
         direct_boot_ok: true,
+        collapse_key: 'homealone-checkin',
       },
     },
   };
@@ -65,7 +73,13 @@ async function sendCheckInNotification(user, session) {
       const text = await res.text();
       console.error('[pushService] FCM HTTP v1 error', res.status, text);
     } else {
-      console.log('[pushService] FCM HTTP v1 notification sent for session', session._id.toString());
+      const payload = await res.json().catch(() => ({}));
+      console.log(
+        '[pushService] FCM HTTP v1 notification sent for session',
+        session._id.toString(),
+        'name=',
+        payload?.name || 'n/a',
+      );
     }
   } catch (err) {
     console.error('[pushService] Error sending FCM HTTP v1 notification', err);
@@ -105,9 +119,10 @@ async function sendTestNotification(user) {
       android: {
         priority: 'HIGH',
         notification: {
-          channel_id: 'checkin-alerts',
-          sound: 'default',
+          channel_id: 'checkin-alerts-alarm-v2',
+          sound: 'alarm',
           visibility: 'PUBLIC',
+          notification_priority: 'PRIORITY_MAX',
           default_vibrate_timings: true,
           default_light_settings: true,
         },
