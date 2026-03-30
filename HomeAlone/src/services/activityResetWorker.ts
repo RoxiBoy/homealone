@@ -116,6 +116,7 @@ export async function runActivityResetCheck(
 
     let snapshot: Awaited<ReturnType<typeof getMostRecentForegroundUsage>> | null = null;
     let usageActive = false;
+    let usageRecent = false;
     let permissionGranted = false;
     let usageIsNew = true;
 
@@ -130,20 +131,19 @@ export async function runActivityResetCheck(
           const ageMs = now - snapshot.lastTimeUsed;
           const packageName = (snapshot.packageName || '').toLowerCase();
           const isNoisePackage = NOISE_PACKAGE_PATTERNS.some(pattern => packageName.includes(pattern));
-          if (isBackgroundSource) {
-            const lastResetMs = await getLastUsageResetMs();
-            usageIsNew = !(lastResetMs && snapshot.lastTimeUsed <= lastResetMs);
-            if (!usageIsNew) {
-              console.log(
-                `[activityResetWorker][${attemptId}] usage not new lastTimeUsed=${snapshot.lastTimeUsed} lastResetMs=${lastResetMs}`,
-              );
-            }
+          const lastResetMs = await getLastUsageResetMs();
+          usageIsNew = !(lastResetMs && snapshot.lastTimeUsed <= lastResetMs);
+          if (!usageIsNew) {
+            console.log(
+              `[activityResetWorker][${attemptId}] usage not new lastTimeUsed=${snapshot.lastTimeUsed} lastResetMs=${lastResetMs}`,
+            );
           }
-          usageActive = !isNoisePackage && ageMs < thresholdMs && usageIsNew;
+          usageRecent = !isNoisePackage && ageMs < thresholdMs;
+          usageActive = usageRecent && usageIsNew;
           console.log(
             `[activityResetWorker][${attemptId}] usageSnapshot package=${snapshot.packageName || 'n/a'} lastTimeUsed=${new Date(
               snapshot.lastTimeUsed,
-            ).toISOString()} ageMs=${ageMs} thresholdMs=${thresholdMs} isNoisePackage=${isNoisePackage} usageActive=${usageActive}`,
+            ).toISOString()} ageMs=${ageMs} thresholdMs=${thresholdMs} isNoisePackage=${isNoisePackage} usageRecent=${usageRecent} usageIsNew=${usageIsNew} usageActive=${usageActive}`,
           );
           if (isNoisePackage) {
             console.log(`[activityResetWorker][${attemptId}] package treated as idle/noise`);
@@ -154,16 +154,17 @@ export async function runActivityResetCheck(
       }
     }
 
-    const active = forceActive || usageActive;
+    const active = forceActive || usageRecent;
+    const shouldReset = usageActive;
     console.log(
-      `[activityResetWorker][${attemptId}] activeDecision forceActive=${forceActive} usageActive=${usageActive} active=${active}`,
+      `[activityResetWorker][${attemptId}] activeDecision forceActive=${forceActive} usageRecent=${usageRecent} usageIsNew=${usageIsNew} active=${active} shouldReset=${shouldReset}`,
     );
 
-    if (!active) {
+    if (!shouldReset) {
       if (!moduleAvailable) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=usage-module-unavailable`);
         return {
-          active: false,
+          active,
           resetSent: false,
           reason: 'usage-module-unavailable',
           attemptId,
@@ -172,7 +173,7 @@ export async function runActivityResetCheck(
       if (!permissionGranted) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=usage-access-not-granted`);
         return {
-          active: false,
+          active,
           resetSent: false,
           reason: 'usage-access-not-granted',
           attemptId,
@@ -180,14 +181,18 @@ export async function runActivityResetCheck(
       }
       if (!snapshot || !snapshot.lastTimeUsed) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=no-usage-snapshot`);
-        return { active: false, resetSent: false, reason: 'no-usage-snapshot', attemptId };
+        return { active, resetSent: false, reason: 'no-usage-snapshot', attemptId };
       }
-      if (isBackgroundSource && !usageIsNew) {
+      if (!usageIsNew) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=usage-not-new`);
-        return { active: false, resetSent: false, reason: 'usage-not-new', attemptId };
+        return { active, resetSent: false, reason: 'usage-not-new', attemptId };
+      }
+      if (!usageRecent) {
+        console.log(`[activityResetWorker][${attemptId}] abort reason=idle`);
+        return { active, resetSent: false, reason: 'idle', attemptId };
       }
       console.log(`[activityResetWorker][${attemptId}] abort reason=idle`);
-      return { active: false, resetSent: false, reason: 'idle', attemptId };
+      return { active, resetSent: false, reason: 'idle', attemptId };
     }
 
     const payload = {
