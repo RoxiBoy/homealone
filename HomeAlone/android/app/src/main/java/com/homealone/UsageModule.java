@@ -18,9 +18,13 @@ import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
+import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class UsageModule extends ReactContextBaseJavaModule {
   private static final String MODULE_NAME = "UsageModule";
@@ -128,6 +132,89 @@ public class UsageModule extends ReactContextBaseJavaModule {
       promise.resolve(map);
     } catch (Exception e) {
       Log.e(TAG, "getMostRecentForegroundUsage failed", e);
+      promise.reject("USAGE_QUERY_FAILED", e);
+    }
+  }
+
+  @ReactMethod
+  public void getRecentForegroundUsage(int limit, Promise promise) {
+    try {
+      if (!hasUsageStatsPermission()) {
+        Log.d(TAG, "getRecentForegroundUsage denied: usage permission missing");
+        promise.reject("USAGE_ACCESS_NOT_GRANTED", "Usage access permission is not granted");
+        return;
+      }
+
+      int maxCount = limit > 0 ? limit : 3;
+      long now = System.currentTimeMillis();
+      long start = now - LOOKBACK_MS;
+
+      UsageStatsManager usm =
+        (UsageStatsManager) getReactApplicationContext().getSystemService(Context.USAGE_STATS_SERVICE);
+
+      if (usm == null) {
+        Log.e(TAG, "UsageStatsManager unavailable");
+        promise.reject("USAGE_STATS_UNAVAILABLE", "UsageStatsManager unavailable");
+        return;
+      }
+
+      Map<String, Long> lastUsedByPackage = new HashMap<>();
+      UsageEvents events = usm.queryEvents(start, now);
+      UsageEvents.Event event = new UsageEvents.Event();
+
+      while (events.hasNextEvent()) {
+        events.getNextEvent(event);
+        int type = event.getEventType();
+        boolean interactionEvent = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+          && type == UsageEvents.Event.USER_INTERACTION;
+        if (
+          type == UsageEvents.Event.MOVE_TO_FOREGROUND
+            || type == UsageEvents.Event.ACTIVITY_RESUMED
+            || interactionEvent
+        ) {
+          long ts = event.getTimeStamp();
+          String pkg = event.getPackageName();
+          Long prev = lastUsedByPackage.get(pkg);
+          if (prev == null || ts > prev) {
+            lastUsedByPackage.put(pkg, ts);
+          }
+        }
+      }
+
+      if (lastUsedByPackage.isEmpty()) {
+        List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now);
+        if (stats != null) {
+          for (UsageStats stat : stats) {
+            if (stat == null) continue;
+            long ts = stat.getLastTimeUsed();
+            String pkg = stat.getPackageName();
+            Long prev = lastUsedByPackage.get(pkg);
+            if (prev == null || ts > prev) {
+              lastUsedByPackage.put(pkg, ts);
+            }
+          }
+        }
+      }
+
+      List<Map.Entry<String, Long>> entries = new ArrayList<>(lastUsedByPackage.entrySet());
+      entries.sort(
+        (a, b) -> Long.compare(b.getValue(), a.getValue())
+      );
+
+      WritableArray array = Arguments.createArray();
+      int count = Math.min(maxCount, entries.size());
+      for (int i = 0; i < count; i += 1) {
+        Map.Entry<String, Long> entry = entries.get(i);
+        WritableMap map = Arguments.createMap();
+        map.putString("packageName", entry.getKey());
+        map.putDouble("lastTimeUsed", entry.getValue());
+        array.pushMap(map);
+      }
+
+      Log.d(TAG, "getRecentForegroundUsage -> count=" + count);
+      promise.resolve(array);
+    } catch (Exception e) {
+      Log.e(TAG, "getRecentForegroundUsage failed", e);
       promise.reject("USAGE_QUERY_FAILED", e);
     }
   }

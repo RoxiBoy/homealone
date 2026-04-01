@@ -290,7 +290,7 @@ exports.resetCheckInWindow = async (req, res) => {
       }
     }
 
-    if (typeof lastTimeUsed === 'number' && user.lastUsageResetAt && !forceActive) {
+    if (typeof lastTimeUsed === 'number' && user.lastUsageResetAt) {
       const lastResetMs = user.lastUsageResetAt.getTime();
       if (lastTimeUsed <= lastResetMs) {
         console.log(

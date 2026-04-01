@@ -3,6 +3,7 @@ import BackgroundFetch, { HeadlessEvent } from 'react-native-background-fetch';
 import { apiFetch } from '../config/api';
 import {
   getMostRecentForegroundUsage,
+  getRecentForegroundUsage,
   hasUsageAccess,
   hasUsageModule,
   openUsageAccessSettings,
@@ -15,6 +16,7 @@ const FAST_TASK_ID = 'homealone-activity-reset-fast';
 export const ACTIVE_USAGE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 const BACKGROUND_USAGE_THRESHOLD_MS = 20 * 60 * 1000; // 20 minutes for delayed background callbacks
 const BACKGROUND_MIN_GAP_MS = 45 * 1000;
+const ATTEMPT_INFLIGHT_TIMEOUT_MS = 15 * 1000;
 const NOISE_PACKAGE_PATTERNS = [
   'launcher',
   'systemui',
@@ -27,6 +29,7 @@ const NOISE_PACKAGE_PATTERNS = [
 let workerConfigured = false;
 let lastBackgroundAttemptAtMs = 0;
 let attemptInFlight = false;
+let attemptInFlightStartedAtMs = 0;
 let lastUsageResetMsCache: number | null = null;
 let lastUsageResetMsLoaded = false;
 
@@ -99,10 +102,24 @@ export async function runActivityResetCheck(
   }
 
   if (attemptInFlight) {
+    const nowMs = Date.now();
+    if (attemptInFlightStartedAtMs && nowMs - attemptInFlightStartedAtMs > ATTEMPT_INFLIGHT_TIMEOUT_MS) {
+      console.log(
+        `[activityResetWorker][${attemptId}] clearing stale attempt-in-flight ageMs=${
+          nowMs - attemptInFlightStartedAtMs
+        } timeoutMs=${ATTEMPT_INFLIGHT_TIMEOUT_MS}`,
+      );
+      attemptInFlight = false;
+      attemptInFlightStartedAtMs = 0;
+    }
+  }
+
+  if (attemptInFlight) {
     console.log(`[activityResetWorker][${attemptId}] skip reason=attempt-in-flight`);
     return { active: false, resetSent: false, reason: 'attempt-in-flight', attemptId };
   }
   attemptInFlight = true;
+  attemptInFlightStartedAtMs = Date.now();
 
   try {
     const token = tokenOverride || (await AsyncStorage.getItem(AUTH_TOKEN_KEY));
@@ -115,10 +132,12 @@ export async function runActivityResetCheck(
     console.log(`[activityResetWorker][${attemptId}] usageModuleAvailable=${moduleAvailable}`);
 
     let snapshot: Awaited<ReturnType<typeof getMostRecentForegroundUsage>> | null = null;
+    let chosenSnapshot: Awaited<ReturnType<typeof getMostRecentForegroundUsage>> | null = null;
     let usageActive = false;
     let usageRecent = false;
     let permissionGranted = false;
     let usageIsNew = true;
+    let usedFallbackSnapshot = false;
 
     if (moduleAvailable) {
       permissionGranted = await hasUsageAccess();
@@ -126,6 +145,7 @@ export async function runActivityResetCheck(
 
       if (permissionGranted) {
         snapshot = await getMostRecentForegroundUsage();
+        chosenSnapshot = snapshot;
         if (snapshot?.lastTimeUsed) {
           const now = Date.now();
           const ageMs = now - snapshot.lastTimeUsed;
@@ -147,6 +167,34 @@ export async function runActivityResetCheck(
           );
           if (isNoisePackage) {
             console.log(`[activityResetWorker][${attemptId}] package treated as idle/noise`);
+            const recent = await getRecentForegroundUsage(3);
+            if (recent.length) {
+              console.log(
+                `[activityResetWorker][${attemptId}] recentUsageTop3=${JSON.stringify(recent)}`,
+              );
+              const fallback = recent.find(entry => {
+                const pkg = (entry.packageName || '').toLowerCase();
+                const noise = NOISE_PACKAGE_PATTERNS.some(pattern => pkg.includes(pattern));
+                const entryAgeMs = now - entry.lastTimeUsed;
+                return !noise && entryAgeMs < thresholdMs;
+              });
+              if (fallback) {
+                usedFallbackSnapshot = true;
+                chosenSnapshot = fallback;
+                const fallbackAgeMs = now - fallback.lastTimeUsed;
+                const fallbackPackage = (fallback.packageName || '').toLowerCase();
+                const fallbackNoise = NOISE_PACKAGE_PATTERNS.some(pattern =>
+                  fallbackPackage.includes(pattern),
+                );
+                usageRecent = !fallbackNoise && fallbackAgeMs < thresholdMs;
+                usageActive = usageRecent && usageIsNew;
+                console.log(
+                  `[activityResetWorker][${attemptId}] fallbackSnapshot package=${fallback.packageName} lastTimeUsed=${new Date(
+                    fallback.lastTimeUsed,
+                  ).toISOString()} ageMs=${fallbackAgeMs} usageRecent=${usageRecent} usageIsNew=${usageIsNew}`,
+                );
+              }
+            }
           }
         } else {
           console.log(`[activityResetWorker][${attemptId}] usageSnapshot missing or has no lastTimeUsed`);
@@ -198,8 +246,8 @@ export async function runActivityResetCheck(
     const payload = {
       requestId: attemptId,
       source,
-      lastTimeUsed: snapshot?.lastTimeUsed || Date.now(),
-      packageName: snapshot?.packageName || 'com.homealone',
+      lastTimeUsed: chosenSnapshot?.lastTimeUsed || snapshot?.lastTimeUsed || Date.now(),
+      packageName: chosenSnapshot?.packageName || snapshot?.packageName || 'com.homealone',
       thresholdMs,
       forceActive,
     };
@@ -231,8 +279,9 @@ export async function runActivityResetCheck(
         JSON.stringify(response),
       );
 
-      if (snapshot?.lastTimeUsed && (response?.ok === true || response?.ignored === true)) {
-        await setLastUsageResetMs(snapshot.lastTimeUsed);
+      const lastUsageTime = chosenSnapshot?.lastTimeUsed || snapshot?.lastTimeUsed;
+      if (lastUsageTime && (response?.ok === true || response?.ignored === true)) {
+        await setLastUsageResetMs(lastUsageTime);
       }
 
       return {
@@ -243,6 +292,9 @@ export async function runActivityResetCheck(
         serverReason: response?.reason,
       };
     } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        console.log(`[activityResetWorker][${attemptId}] /users/check-in-reset aborted`);
+      }
       console.log(
         `[activityResetWorker][${attemptId}] /users/check-in-reset failed`,
         error?.message || String(error),
@@ -253,6 +305,7 @@ export async function runActivityResetCheck(
     }
   } finally {
     attemptInFlight = false;
+    attemptInFlightStartedAtMs = 0;
   }
 }
 

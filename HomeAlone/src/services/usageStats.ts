@@ -10,6 +10,7 @@ type UsageNativeModule = {
   hasUsageAccess: () => Promise<boolean>;
   openUsageAccessSettings: () => void;
   getMostRecentForegroundUsage: () => Promise<UsageSnapshot>;
+  getRecentForegroundUsage: (limit: number) => Promise<UsageSnapshot[]>;
 };
 
 const usageModule: UsageNativeModule | null =
@@ -55,6 +56,18 @@ export async function getMostRecentForegroundUsage(): Promise<UsageSnapshot | nu
   } catch (error) {
     console.log('[usageStats] getMostRecentForegroundUsage failed', error);
     return null;
+  }
+}
+
+export async function getRecentForegroundUsage(limit = 3): Promise<UsageSnapshot[]> {
+  if (!usageModule) return [];
+  try {
+    const recent = await usageModule.getRecentForegroundUsage(limit);
+    console.log('[usageStats] recent snapshot', JSON.stringify(recent || []));
+    return Array.isArray(recent) ? recent : [];
+  } catch (error) {
+    console.log('[usageStats] getRecentForegroundUsage failed', error);
+    return [];
   }
 }
 
