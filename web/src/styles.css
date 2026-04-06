@@ -83,20 +83,20 @@ main {
 .brand {
   font-family: 'Fraunces', serif;
   font-weight: 700;
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   color: var(--navy);
   margin: 0;
 }
 
 .brand-tag {
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   color: var(--muted);
 }
 
 .nav-links {
   display: flex;
   gap: 20px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--slate);
 }
 
@@ -125,7 +125,7 @@ main {
 }
 
 .hero-body {
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   line-height: 1.6;
   color: var(--slate);
   max-width: 520px;
@@ -176,7 +176,7 @@ main {
 
 .cta-note {
   margin-top: 16px;
-  font-size: 0.95rem;
+  font-size: 1rem;
   color: var(--muted);
 }
 
@@ -192,12 +192,14 @@ main {
 .hero-copy h3 {
   margin: 0 0 12px;
   color: var(--navy);
+  font-size: 1.25rem;
 }
 
 .hero-copy p {
   margin: 0 0 16px;
   color: var(--slate);
   line-height: 1.6;
+  font-size: 1rem;
 }
 
 .hero-pill-row {
@@ -211,7 +213,7 @@ main {
   border-radius: 999px;
   background: rgba(24, 31, 73, 0.1);
   color: var(--navy);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
   font-weight: 600;
 }
 
@@ -236,12 +238,12 @@ main {
 
 .triangle-card h4 {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 1.05rem;
 }
 
 .triangle-card p {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   color: var(--slate);
 }
 
@@ -274,6 +276,10 @@ main {
 .section.alt .section-header h2,
 .section.alt .section-header p {
   color: #fff;
+}
+
+.section.alt .section-header h2 {
+  color: var(--orange);
 }
 
 .section.alt .section-header p {
@@ -314,7 +320,7 @@ main {
 
 .section-header h2 {
   font-family: 'Fraunces', serif;
-  font-size: clamp(1.9rem, 2.6vw, 2.6rem);
+  font-size: clamp(2.1rem, 2.9vw, 2.9rem);
   color: var(--navy);
   margin: 12px 0 12px;
 }
@@ -322,7 +328,8 @@ main {
 .section-header p {
   max-width: 640px;
   color: var(--slate);
-  line-height: 1.6;
+  line-height: 1.7;
+  font-size: 1.05rem;
 }
 
 .steps {
@@ -337,6 +344,7 @@ main {
   border-radius: 20px;
   border: 1px solid rgba(24, 31, 73, 0.08);
   box-shadow: 0 14px 32px rgba(24, 31, 73, 0.08);
+  font-size: 1rem;
 }
 
 .step-label {
@@ -369,6 +377,7 @@ main {
   border-radius: 22px;
   border: 1px solid rgba(24, 31, 73, 0.08);
   box-shadow: 0 16px 30px rgba(24, 31, 73, 0.08);
+  font-size: 1rem;
 }
 
 .feature-card h3 {
@@ -458,6 +467,7 @@ main {
   padding-left: 18px;
   border: 0;
   color: var(--slate);
+  font-size: 1rem;
 }
 
 .section.alt .provider-card ul,
@@ -499,6 +509,7 @@ main {
   background: rgba(255, 255, 255, 0.08);
   padding: 24px;
   border-radius: 24px;
+  font-size: 1rem;
 }
 
 .cta-actions {

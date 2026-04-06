@@ -220,7 +220,7 @@ export default function App() {
           <div className="cta-panel">
             <div>
               <h3>Provider partnership</h3>
-              <ul>card
+              <ul>
                 <li>Simple onboarding for clients</li>
                 <li>Clear escalation pathways</li>
                 <li>Founding pricing locked in</li>
