@@ -33,8 +33,14 @@ a {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  gap: 96px;
+  gap: 140px;
   padding: 32px 6vw 48px;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 140px;
 }
 
 .section,
@@ -209,23 +215,101 @@ a {
   font-weight: 600;
 }
 
-.hero-images {
+.hero-triangles {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 18px;
 }
 
-.hero-images img {
-  width: 100%;
-  border-radius: 18px;
-  border: 1px solid rgba(24, 31, 73, 0.1);
+.triangle-card {
   background: #fff;
+  color: var(--navy);
+  padding: 18px 16px 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(24, 31, 73, 0.16);
+  box-shadow: 0 12px 24px rgba(24, 31, 73, 0.08);
+  min-height: 160px;
+  display: grid;
+  align-content: end;
+  gap: 8px;
+}
+
+.triangle-card h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.triangle-card p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--slate);
+}
+
+.hero-triangles .triangle-card:nth-child(2) {
+  border-color: rgba(251, 100, 54, 0.3);
+}
+
+.hero-triangles .triangle-card:nth-child(3) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(240px, 80%);
 }
 
 .section {
   display: grid;
-  gap: 36px;
-  padding: 48px 0 0;
+  gap: 44px;
+  padding: 80px 0 0;
+  min-height: calc(100vh - 140px);
+  align-content: center;
+}
+
+.section.alt {
+  background: var(--navy);
+  padding: 48px 36px;
+  border-radius: 32px;
+  border: 1px solid rgba(24, 31, 73, 0.6);
+}
+
+.section.alt .eyebrow,
+.section.alt .section-header h2,
+.section.alt .section-header p {
+  color: #fff;
+}
+
+.section.alt .section-header p {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.section.alt .step-card,
+.section.alt .provider-card {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: none;
+  color: #fff;
+}
+
+.section.alt .provider-card h3,
+.section.alt .provider-card ul {
+  color: #fff;
+}
+
+.section.alt .provider-card h3 {
+  color: #fff;
+}
+
+.section.alt .step-card p,
+.section.alt .provider-card p,
+.section.alt .provider-card li {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.section.alt .provider-cta p {
+  color: #fff;
+}
+
+.section.alt .step-label {
+  background: rgba(251, 100, 54, 0.25);
+  color: #fff;
 }
 
 .section-header h2 {
@@ -269,8 +353,14 @@ a {
 
 .feature-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 18px;
+}
+
+@media (min-width: 1200px) {
+  .feature-grid {
+    grid-template-columns: repeat(5, minmax(180px, 1fr));
+  }
 }
 
 .feature-card {
@@ -287,9 +377,19 @@ a {
 }
 
 .demo {
-  background: linear-gradient(135deg, rgba(24, 31, 73, 0.05), rgba(251, 100, 54, 0.06));
+  background: transparent;
   padding: 36px;
   border-radius: 32px;
+}
+
+@media (max-width: 700px) {
+  .hero-triangles {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-triangles .triangle-card:nth-child(3) {
+    width: 100%;
+  }
 }
 
 .video-placeholder {
@@ -301,8 +401,8 @@ a {
   width: min(720px, 100%);
   aspect-ratio: 16 / 9;
   border-radius: 28px;
-  border: 2px dashed rgba(24, 31, 73, 0.3);
-  background: rgba(255, 255, 255, 0.8);
+  border: 2px dashed rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.08);
   display: grid;
   place-items: center;
   position: relative;
@@ -314,8 +414,9 @@ a {
   top: 20px;
   left: 20px;
   padding: 6px 12px;
-  background: rgba(24, 31, 73, 0.85);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--navy);
+  font-weight: 600;
   border-radius: 999px;
   font-size: 0.85rem;
 }
@@ -330,7 +431,7 @@ a {
 .video-grid div {
   height: 120px;
   border-radius: 16px;
-  background: rgba(24, 31, 73, 0.08);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .providers {
@@ -338,6 +439,12 @@ a {
   padding: 32px;
   border-radius: 28px;
   box-shadow: var(--shadow);
+}
+
+.providers.alt {
+  background: var(--navy);
+  border: 1px solid rgba(24, 31, 73, 0.6);
+  box-shadow: none;
 }
 
 .provider-card {
@@ -349,13 +456,26 @@ a {
 
 .provider-card ul {
   padding-left: 18px;
+  border: 0;
   color: var(--slate);
 }
 
+.section.alt .provider-card ul,
+.section.alt .provider-card li {
+  color: #fff;
+}
+
+.section.alt .cta-panel ul,
+.section.alt .cta-panel li,
+.section.alt .cta-panel h3,
+.section.alt .cta-panel p {
+  color: #fff;
+}
+
 .provider-cta {
-  background: rgba(251, 100, 54, 0.1);
-  padding: 20px;
-  border-radius: 20px;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
 }
 
 .founding {
@@ -387,7 +507,7 @@ a {
 }
 
 .investors {
-  background: rgba(24, 31, 73, 0.08);
+  background: transparent;
   padding: 32px;
   border-radius: 28px;
   border: 1px solid rgba(24, 31, 73, 0.12);

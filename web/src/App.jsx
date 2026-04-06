@@ -1,7 +1,4 @@
 import logo from './assets/logo.jpg';
-import contactsImg from './assets/contacts.png';
-import emergencyImg from './assets/emergencySessions.png';
-import userImg from './assets/user.png';
 
 const featureCards = [
   {
@@ -28,11 +25,6 @@ const featureCards = [
     title: 'Provider Ready',
     body:
       'Designed so home support teams can offer HomeAlone as a simple, affordable service to clients who live independently.',
-  },
-  {
-    title: 'Customizable for Every Routine',
-    body:
-      'Short check-ins, long check-ins, quiet hours, and unique care plans. It fits the person, not the other way around.',
   },
 ];
 
@@ -117,15 +109,24 @@ export default function App() {
                 <span>Clear escalation paths</span>
               </div>
             </div>
-            <div className="hero-images">
-              <img src={userImg} alt="User profile" />
-              <img src={contactsImg} alt="Care contacts" />
-              <img src={emergencyImg} alt="Emergency sessions" />
+            <div className="hero-triangles">
+              <div className="triangle-card">
+                <h4>Personalized schedules</h4>
+                <p>Check-ins adjust to real routines so alerts feel natural.</p>
+              </div>
+              <div className="triangle-card">
+                <h4>Silent activity sensing</h4>
+                <p>Light signals delay alerts when the phone is in use.</p>
+              </div>
+              <div className="triangle-card">
+                <h4>Clear escalation paths</h4>
+                <p>When needed, trusted contacts receive timely updates.</p>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="section" id="how">
+        <section className="section alt" id="how">
           <div className="section-header">
             <p className="eyebrow">How it works</p>
             <h2>Support that respects independence</h2>
@@ -163,7 +164,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="section demo" id="demo">
+        <section className="section demo alt" id="demo">
           <div className="section-header">
             <p className="eyebrow">Demo</p>
             <h2>See the experience in action</h2>
@@ -207,7 +208,7 @@ export default function App() {
           </div>
         </section>
 
-        <section className="section providers" id="providers">
+        <section className="section providers alt" id="providers">
           <div className="section-header">
             <p className="eyebrow">For providers</p>
             <h2>Add HomeAlone to your care offering</h2>
@@ -216,10 +217,10 @@ export default function App() {
               clients. We help you integrate quickly, and we keep it affordable.
             </p>
           </div>
-          <div className="provider-card">
+          <div className="cta-panel">
             <div>
               <h3>Provider partnership</h3>
-              <ul>
+              <ul>card
                 <li>Simple onboarding for clients</li>
                 <li>Clear escalation pathways</li>
                 <li>Founding pricing locked in</li>
