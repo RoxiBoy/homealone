@@ -94,3 +94,7 @@ tmp/*
 */tmp/*
 
 HomeAlone/Android/app/google-services.json
+
+
+
+web/dist/*
