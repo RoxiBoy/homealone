@@ -98,10 +98,19 @@ const sendEmail = async (senderName, receiverName, receiverEmail) => {
 
         console.log(`Email sent successfully to email ${receiverEmail}: ${data}`)
         console.log(`[sendEmail] Brevo response:`, JSON.stringify(data, null, 2));
+        return {
+            ok: true,
+            data,
+        };
         
     } catch(err) {
 
         console.log(`Error sending emergency email: ${err}`)
+        return {
+            ok: false,
+            reason: 'send-error',
+            error: err?.message || String(err),
+        };
 
     }
 
@@ -111,7 +120,6 @@ const sendEmail = async (senderName, receiverName, receiverEmail) => {
 module.exports = {
     sendEmail
 }
-
 
 
 

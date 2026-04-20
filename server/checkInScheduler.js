@@ -1,12 +1,34 @@
 const User = require('./models/User');
 const CheckInSession = require('./models/CheckInSession');
 const { sendCheckInNotification } = require('./services/pushService');
+const { initiateEmergencyProtocol } = require('./services/emergencyProtocolService');
 
 const SCHEDULER_INTERVAL_MS = 5000; // run every 60 seconds
 
 async function schedulerTick() {
   const now = new Date();
   try {
+    const overdueSessions = await CheckInSession.find({
+      status: 'pending',
+      responseDeadline: { $lte: now },
+    }).exec();
+
+    for (const session of overdueSessions) {
+      try {
+        await initiateEmergencyProtocol({
+          sessionId: session._id,
+          userId: session.user,
+          reason: 'scheduler-timeout',
+        });
+      } catch (err) {
+        console.error(
+          '[CheckInScheduler] Error escalating overdue session',
+          session._id.toString(),
+          err,
+        );
+      }
+    }
+
     // Find users who are not currently in emergency and whose nextCheckInAt is due
     const dueUsers = await User.find({
       checkInStatus: { $ne: 'emergency' },
@@ -39,8 +61,6 @@ async function schedulerTick() {
           continue;
         }
 
-        // Avoid creating duplicate pending sessions, but expire stale ones so a fresh
-        // session can be created when the user arms settings again.
         const existingPending = await CheckInSession.findOne({
           user: user._id,
           status: 'pending',
@@ -49,29 +69,14 @@ async function schedulerTick() {
           .exec();
 
         if (existingPending) {
-          const nowInner = new Date();
-          if (existingPending.responseDeadline <= nowInner) {
-            console.log(
-              '[CheckInScheduler] Expiring stale pending session',
-              existingPending._id.toString(),
-              'for user',
-              user._id.toString(),
-            );
-            existingPending.status = 'expired';
-            existingPending.resolvedAt = nowInner;
-            await existingPending.save();
-            // Reset user status so a new check-in can be scheduled.
-            user.checkInStatus = 'ok';
-          } else {
-            console.log(
-              '[CheckInScheduler] User',
-              user._id.toString(),
-              'already has non-expired pending session',
-              existingPending._id.toString(),
-              'skipping new session',
-            );
-            continue;
-          }
+          console.log(
+            '[CheckInScheduler] User',
+            user._id.toString(),
+            'already has pending session',
+            existingPending._id.toString(),
+            'skipping new session',
+          );
+          continue;
         }
 
         const nowInner = new Date();

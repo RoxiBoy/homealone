@@ -20,7 +20,7 @@ const whyHomeAlone = [
 const howSteps = [
   {
     title: '1. Install the App',
-    body: 'Download Home Alone to your smartphone.',
+    body: 'Download HomeAlone to your smartphone.',
   },
   {
     title: '2. Set up monitoring and contacts',
@@ -145,7 +145,7 @@ export default function NewPage() {
             <div className="np-content np-hero-content">
               <h1>A Safety Net for People Who Live Alone</h1>
               <p className="np-subheadline">
-                Home Alone is a simple smartphone app that alerts someone you trust if something might be
+                HomeAlone is a simple smartphone app that alerts someone you trust if something might be
                 wrong.
               </p>
               <div className="np-actions">
@@ -205,9 +205,9 @@ export default function NewPage() {
             <div className="np-content">
               <div className="np-heading">
                 <NpIcon name="shield" />
-                <h2>Meet Home Alone</h2>
+                <h2>Meet HomeAlone</h2>
               </div>
-              <p>Home Alone is a smartphone app that quietly monitors your activity throughout the day.</p>
+              <p>HomeAlone is a smartphone app that quietly monitors your activity throughout the day.</p>
               <p>
                 If activity suddenly stops for an unusual period, the app automatically sends a message to
                 a trusted contact asking them to check on you.
@@ -267,7 +267,7 @@ export default function NewPage() {
                 <h2>Who It&apos;s For</h2>
               </div>
               <p>
-                Home Alone is designed for people who value independence but want an added layer of safety.
+                HomeAlone is designed for people who value independence but want an added layer of safety.
               </p>
             </div>
             <img src={whoItsForCollage} alt="Collage of people and care contexts supported by HomeAlone" className="np-photo np-photo-who-full" />
@@ -279,7 +279,7 @@ export default function NewPage() {
             <div className="np-content">
               <div className="np-heading">
                 <NpIcon name="star" />
-                <h2>Why Home Alone?</h2>
+                <h2>Why HomeAlone?</h2>
               </div>
             </div>
             <ul className="np-check-list np-check-grid">
