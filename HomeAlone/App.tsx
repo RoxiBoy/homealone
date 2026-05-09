@@ -5,6 +5,7 @@ import { View, Text } from 'tamagui'
 import { config } from './tamagui.config'
 import { AuthProvider, useAuth } from './src/contexts/AuthContext'
 import { CheckInProvider } from './src/contexts/CheckInContext'
+import { PaymentProvider } from './src/contexts/PaymentContext'
 import LoginScreen from './src/screens/auth/LoginScreen'
 import RegisterScreen from './src/screens/auth/RegisterScreen'
 import MainScreen from './src/screens/main/MainScreen'
@@ -38,9 +39,11 @@ export default function App() {
       <TamaguiProvider config={config}>
         <SafeAreaView style={{ flex: 1 }}>
           <AuthProvider>
-            <CheckInProvider>
-              <RootNavigator />
-            </CheckInProvider>
+            <PaymentProvider>
+              <CheckInProvider>
+                <RootNavigator />
+              </CheckInProvider>
+            </PaymentProvider>
           </AuthProvider>
         </SafeAreaView>
       </TamaguiProvider>

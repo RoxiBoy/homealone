@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView } from 'react-native';
 import { View, Text, Button, YStack, XStack } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,72 +7,151 @@ import { apiFetch } from '../../config/api';
 
 const ACTIVITY_SETTINGS_KEY = '@homealone/activity-settings';
 
-const CHECK_IN_OPTIONS = [1, 2, 4, 6, 8, 12, 24]; // hours
-const COUNTDOWN_OPTIONS = [1, 2, 5, 10, 15, 30, 60]; // minutes
+const CHECK_IN_OPTIONS = [1, 2, 4, 6, 8, 12, 24];
+const COUNTDOWN_OPTIONS = [1, 2, 5, 10, 15, 30, 60];
+const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
+
+type DndReason = 'manual' | 'sleep' | null;
 
 type ActivitySettings = {
-  checkInTime: number; // hours
-  countdownTime: number; // minutes
+  checkInTime: number;
+  countdownTime: number;
   dnd: boolean;
+  sleepTimerEnabled: boolean;
+  sleepStartHour: number;
+  sleepEndHour: number;
+  sleepTimezone: string;
+  effectiveDnd: boolean;
+  dndReason: DndReason;
+};
+
+const getDeviceTimezone = () => {
+  try {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return timezone || 'UTC';
+  } catch (error) {
+    return 'UTC';
+  }
 };
 
 const DEFAULT_SETTINGS: ActivitySettings = {
   checkInTime: 2,
   countdownTime: 2,
   dnd: false,
+  sleepTimerEnabled: false,
+  sleepStartHour: 21,
+  sleepEndHour: 7,
+  sleepTimezone: getDeviceTimezone(),
+  effectiveDnd: false,
+  dndReason: null,
 };
+
+const formatHourLabel = (hour: number) => {
+  const normalized = ((hour % 24) + 24) % 24;
+  const suffix = normalized >= 12 ? 'PM' : 'AM';
+  const hour12 = normalized % 12 === 0 ? 12 : normalized % 12;
+  return `${hour12} ${suffix}`;
+};
+
+const buildSettingsFromPayload = (
+  payload: Partial<{
+    checkInIntervalHours: number;
+    emergencyCountdownMinutes: number;
+    dnd: boolean;
+    sleepTimerEnabled: boolean;
+    sleepStartHour: number;
+    sleepEndHour: number;
+    sleepTimezone: string;
+    effectiveDnd: boolean;
+    dndReason: DndReason;
+  }>,
+  fallback: ActivitySettings,
+): ActivitySettings => ({
+  checkInTime:
+    typeof payload.checkInIntervalHours === 'number'
+      ? payload.checkInIntervalHours
+      : fallback.checkInTime,
+  countdownTime:
+    typeof payload.emergencyCountdownMinutes === 'number'
+      ? payload.emergencyCountdownMinutes
+      : fallback.countdownTime,
+  dnd: typeof payload.dnd === 'boolean' ? payload.dnd : fallback.dnd,
+  sleepTimerEnabled:
+    typeof payload.sleepTimerEnabled === 'boolean'
+      ? payload.sleepTimerEnabled
+      : fallback.sleepTimerEnabled,
+  sleepStartHour:
+    Number.isInteger(payload.sleepStartHour) ? payload.sleepStartHour! : fallback.sleepStartHour,
+  sleepEndHour:
+    Number.isInteger(payload.sleepEndHour) ? payload.sleepEndHour! : fallback.sleepEndHour,
+  sleepTimezone:
+    typeof payload.sleepTimezone === 'string' && payload.sleepTimezone
+      ? payload.sleepTimezone
+      : fallback.sleepTimezone,
+  effectiveDnd:
+    typeof payload.effectiveDnd === 'boolean' ? payload.effectiveDnd : fallback.effectiveDnd,
+  dndReason:
+    payload.dndReason === 'manual' || payload.dndReason === 'sleep'
+      ? payload.dndReason
+      : fallback.dndReason,
+});
 
 const SettingsTab: React.FC = () => {
   const { token, notificationsEnabled, user, updateUser } = useAuth();
   const [settings, setSettings] = useState<ActivitySettings>({
     ...DEFAULT_SETTINGS,
-    dnd: user?.dnd ?? false,
+    dnd: user?.dnd ?? DEFAULT_SETTINGS.dnd,
+    sleepTimerEnabled: user?.sleepTimerEnabled ?? DEFAULT_SETTINGS.sleepTimerEnabled,
+    sleepStartHour: user?.sleepStartHour ?? DEFAULT_SETTINGS.sleepStartHour,
+    sleepEndHour: user?.sleepEndHour ?? DEFAULT_SETTINGS.sleepEndHour,
+    sleepTimezone: user?.sleepTimezone ?? DEFAULT_SETTINGS.sleepTimezone,
+    effectiveDnd: user?.effectiveDnd ?? user?.dnd ?? DEFAULT_SETTINGS.effectiveDnd,
+    dndReason: user?.dndReason ?? DEFAULT_SETTINGS.dndReason,
   });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // Prefer server values if available
         if (token) {
           try {
             const profile = await apiFetch<{
               checkInIntervalHours?: number;
               emergencyCountdownMinutes?: number;
               dnd?: boolean;
+              sleepTimerEnabled?: boolean;
+              sleepStartHour?: number;
+              sleepEndHour?: number;
+              sleepTimezone?: string;
+              effectiveDnd?: boolean;
+              dndReason?: DndReason;
             }>('/users/profile', {
               method: 'GET',
               token,
             });
 
-            setSettings(prev => ({
-              checkInTime:
-                typeof profile.checkInIntervalHours === 'number'
-                  ? profile.checkInIntervalHours
-                  : prev.checkInTime,
-              countdownTime:
-                typeof profile.emergencyCountdownMinutes === 'number'
-                  ? profile.emergencyCountdownMinutes
-                  : prev.countdownTime,
-              dnd: typeof profile.dnd === 'boolean' ? profile.dnd : prev.dnd,
-            }));
+            setSettings(prev => buildSettingsFromPayload(profile, prev));
           } catch (serverError) {
             console.warn('[SettingsTab] Failed to load settings from server', serverError);
           }
         }
 
-        // Always try to merge in local overrides last
         const stored = await AsyncStorage.getItem(ACTIVITY_SETTINGS_KEY);
         if (stored) {
           const parsed = JSON.parse(stored) as Partial<ActivitySettings>;
           setSettings(current => ({
+            ...current,
             checkInTime: parsed.checkInTime ?? current.checkInTime,
             countdownTime: parsed.countdownTime ?? current.countdownTime,
             dnd: parsed.dnd ?? current.dnd,
+            sleepTimerEnabled: parsed.sleepTimerEnabled ?? current.sleepTimerEnabled,
+            sleepStartHour: parsed.sleepStartHour ?? current.sleepStartHour,
+            sleepEndHour: parsed.sleepEndHour ?? current.sleepEndHour,
+            sleepTimezone: parsed.sleepTimezone ?? current.sleepTimezone,
           }));
         }
-      } catch (e) {
-        console.warn('[SettingsTab] Failed to load settings', e);
+      } catch (error) {
+        console.warn('[SettingsTab] Failed to load settings', error);
       } finally {
         setLoading(false);
       }
@@ -81,100 +160,117 @@ const SettingsTab: React.FC = () => {
     loadSettings();
   }, [token]);
 
+  const dndStatusText = useMemo(() => {
+    if (!settings.effectiveDnd) {
+      return 'Check-in alerts are currently active.';
+    }
+
+    if (settings.dndReason === 'sleep') {
+      return 'Check-in alerts are currently silenced by your sleep timer.';
+    }
+
+    return 'Check-in alerts are currently silenced manually.';
+  }, [settings.dndReason, settings.effectiveDnd]);
+
   const persistSettings = async (next: ActivitySettings) => {
     setSettings(next);
 
-    try {
-      await AsyncStorage.setItem(ACTIVITY_SETTINGS_KEY, JSON.stringify(next));
-    } catch (e) {
-      console.warn('[SettingsTab] Failed to save settings locally', e);
-    }
-
-    // Also sync to server when logged in
-    if (token) {
-      try {
-        await apiFetch('/users/settings', {
-          method: 'PUT',
-          token,
-          body: JSON.stringify({
-            checkInIntervalHours: next.checkInTime,
-            emergencyCountdownMinutes: next.countdownTime,
-            dnd: next.dnd,
-          }),
-        });
-      } catch (e) {
-        console.warn('[SettingsTab] Failed to save settings on server', e);
-      }
-    }
-
-    // Update auth user snapshot so other parts of the app can react to DND immediately
-    updateUser({ dnd: next.dnd });
-  };
-
-  const handleSelectCheckIn = (hours: number) => {
-    persistSettings({ ...settings, checkInTime: hours });
-  };
-
-  const handleSelectCountdown = (minutes: number) => {
-    persistSettings({ ...settings, countdownTime: minutes });
-  };
-
-  const persistDnd = async (nextDnd: boolean) => {
-    const next: ActivitySettings = { ...settings, dnd: nextDnd };
-    setSettings(next);
+    const localSettings = {
+      checkInTime: next.checkInTime,
+      countdownTime: next.countdownTime,
+      dnd: next.dnd,
+      sleepTimerEnabled: next.sleepTimerEnabled,
+      sleepStartHour: next.sleepStartHour,
+      sleepEndHour: next.sleepEndHour,
+      sleepTimezone: next.sleepTimezone || getDeviceTimezone(),
+    };
 
     try {
-      await AsyncStorage.setItem(ACTIVITY_SETTINGS_KEY, JSON.stringify(next));
-    } catch (e) {
-      console.warn('[SettingsTab] Failed to save settings locally', e);
+      await AsyncStorage.setItem(ACTIVITY_SETTINGS_KEY, JSON.stringify(localSettings));
+    } catch (error) {
+      console.warn('[SettingsTab] Failed to save settings locally', error);
     }
 
-    // Sync only the DND flag so we don't accidentally overwrite interval/countdown
-    // (especially if settings haven't loaded yet).
-    if (token) {
-      try {
-        await apiFetch('/users/settings', {
-          method: 'PUT',
-          token,
-          body: JSON.stringify({ dnd: nextDnd }),
-        });
-      } catch (e) {
-        console.warn('[SettingsTab] Failed to save DND on server', e);
-      }
+    if (!token) {
+      updateUser({
+        dnd: next.dnd,
+        sleepTimerEnabled: next.sleepTimerEnabled,
+        sleepStartHour: next.sleepStartHour,
+        sleepEndHour: next.sleepEndHour,
+        sleepTimezone: next.sleepTimezone,
+        effectiveDnd: next.effectiveDnd,
+        dndReason: next.dndReason,
+      });
+      return;
     }
 
-    updateUser({ dnd: nextDnd });
+    try {
+      const updatedUser = await apiFetch<any>('/users/settings', {
+        method: 'PUT',
+        token,
+        body: JSON.stringify({
+          checkInIntervalHours: next.checkInTime,
+          emergencyCountdownMinutes: next.countdownTime,
+          dnd: next.dnd,
+          sleepTimerEnabled: next.sleepTimerEnabled,
+          sleepStartHour: next.sleepStartHour,
+          sleepEndHour: next.sleepEndHour,
+          sleepTimezone: next.sleepTimezone || getDeviceTimezone(),
+        }),
+      });
+
+      const merged = buildSettingsFromPayload(updatedUser, next);
+      setSettings(merged);
+      await updateUser({
+        checkInIntervalHours: merged.checkInTime,
+        emergencyCountdownMinutes: merged.countdownTime,
+        dnd: merged.dnd,
+        sleepTimerEnabled: merged.sleepTimerEnabled,
+        sleepStartHour: merged.sleepStartHour,
+        sleepEndHour: merged.sleepEndHour,
+        sleepTimezone: merged.sleepTimezone,
+        effectiveDnd: merged.effectiveDnd,
+        dndReason: merged.dndReason,
+      });
+    } catch (error) {
+      console.warn('[SettingsTab] Failed to save settings on server', error);
+    }
   };
 
-  const handleToggleDnd = () => {
-    persistDnd(!settings.dnd);
+  const updateSettingsPartial = (patch: Partial<ActivitySettings>) => {
+    persistSettings({
+      ...settings,
+      ...patch,
+      sleepTimezone: patch.sleepTimezone || settings.sleepTimezone || getDeviceTimezone(),
+    });
   };
 
   return (
     <ScrollView style={{ flex: 1 }}>
       <YStack space="$4" padding="$4">
-        {/* DND toggle at top */}
         <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4">
           <XStack alignItems="center" justifyContent="space-between">
             <YStack flex={1} marginRight="$3">
               <Text fontSize="$6" fontWeight="600">
-                Do Not Disturb
+                Manual Do Not Disturb
               </Text>
               <Text fontSize="$3" color="$color11">
-                When enabled, HomeAlone will not send check-in alerts.
+                When enabled, HomeAlone will not send check-in alerts until you turn it off again.
               </Text>
             </YStack>
 
-            <Button size="$3" variant={settings.dnd ? 'solid' : 'outlined'} onPress={handleToggleDnd}>
+            <Button
+              size="$3"
+              variant={settings.dnd ? 'solid' : 'outlined'}
+              onPress={() => updateSettingsPartial({ dnd: !settings.dnd })}
+            >
               <Text color="$color12">{settings.dnd ? 'On' : 'Off'}</Text>
             </Button>
           </XStack>
 
-          {settings.dnd ? (
-            <Text fontSize="$3" color="$color11" marginTop="$2">
-              DND is enabled: check-in alerts are silenced.
-            </Text>
-          ) : null}
+          <Text fontSize="$3" color="$color11" marginTop="$2">
+            {dndStatusText}
+          </Text>
         </View>
 
         {notificationsEnabled === false && (
@@ -189,7 +285,6 @@ const SettingsTab: React.FC = () => {
           </View>
         )}
 
-        {/* Foreground silencing info */}
         {user?.isActive ? (
           <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$3">
             <Text fontSize="$3" color="$color11">
@@ -224,7 +319,7 @@ const SettingsTab: React.FC = () => {
                     key={hours}
                     size="$3"
                     variant={settings.checkInTime === hours ? 'solid' : 'outlined'}
-                    onPress={() => handleSelectCheckIn(hours)}
+                    onPress={() => updateSettingsPartial({ checkInTime: hours })}
                   >
                     <Text color="$color12">
                       {hours} {hours === 1 ? 'hour' : 'hours'}
@@ -249,11 +344,83 @@ const SettingsTab: React.FC = () => {
                     key={minutes}
                     size="$3"
                     variant={settings.countdownTime === minutes ? 'solid' : 'outlined'}
-                    onPress={() => handleSelectCountdown(minutes)}
+                    onPress={() => updateSettingsPartial({ countdownTime: minutes })}
                   >
                     <Text color="$color12">
                       {minutes} {minutes === 1 ? 'minute' : 'minutes'}
                     </Text>
+                  </Button>
+                ))}
+              </XStack>
+            </View>
+
+            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
+              <XStack alignItems="center" justifyContent="space-between" marginBottom="$3">
+                <YStack flex={1} marginRight="$3">
+                  <Text fontSize="$6" fontWeight="600">
+                    Sleep timer
+                  </Text>
+                  <Text fontSize="$3" color="$color11">
+                    Silence check-in alerts automatically while you usually sleep.
+                  </Text>
+                </YStack>
+
+                <Button
+                  size="$3"
+                  variant={settings.sleepTimerEnabled ? 'solid' : 'outlined'}
+                  onPress={() =>
+                    updateSettingsPartial({
+                      sleepTimerEnabled: !settings.sleepTimerEnabled,
+                      sleepTimezone: getDeviceTimezone(),
+                    })
+                  }
+                >
+                  <Text color="$color12">{settings.sleepTimerEnabled ? 'On' : 'Off'}</Text>
+                </Button>
+              </XStack>
+
+              <Text fontSize="$3" color="$color11" marginBottom="$3">
+                Current timezone: {settings.sleepTimezone}
+              </Text>
+
+              <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+                Sleep starts
+              </Text>
+              <XStack flexWrap="wrap" gap="$2" marginBottom="$4">
+                {HOUR_OPTIONS.map(hour => (
+                  <Button
+                    key={`sleep-start-${hour}`}
+                    size="$2"
+                    variant={settings.sleepStartHour === hour ? 'solid' : 'outlined'}
+                    onPress={() =>
+                      updateSettingsPartial({
+                        sleepStartHour: hour,
+                        sleepTimezone: getDeviceTimezone(),
+                      })
+                    }
+                  >
+                    <Text color="$color12">{formatHourLabel(hour)}</Text>
+                  </Button>
+                ))}
+              </XStack>
+
+              <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+                Sleep ends
+              </Text>
+              <XStack flexWrap="wrap" gap="$2">
+                {HOUR_OPTIONS.map(hour => (
+                  <Button
+                    key={`sleep-end-${hour}`}
+                    size="$2"
+                    variant={settings.sleepEndHour === hour ? 'solid' : 'outlined'}
+                    onPress={() =>
+                      updateSettingsPartial({
+                        sleepEndHour: hour,
+                        sleepTimezone: getDeviceTimezone(),
+                      })
+                    }
+                  >
+                    <Text color="$color12">{formatHourLabel(hour)}</Text>
                   </Button>
                 ))}
               </XStack>
@@ -271,9 +438,11 @@ const SettingsTab: React.FC = () => {
                 2. If you do not respond within the countdown window, your emergency contacts can be
                 notified.
               </Text>
+              <Text fontSize="$3" color="$color11" marginBottom="$1">
+                3. Manual DND silences alerts until you turn it off.
+              </Text>
               <Text fontSize="$3" color="$color11">
-                3. When DND is enabled or you are actively using the app, check-in alerts are
-                silenced.
+                4. The sleep timer silences alerts automatically during your chosen sleep hours.
               </Text>
             </View>
           </>

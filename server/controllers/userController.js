@@ -2,7 +2,13 @@ const User = require('../models/User');
 const Friend = require('../models/Friend');
 const { sendTestNotification } = require('../services/pushService');
 const CheckInSession = require('../models/CheckInSession');
-const { armCheckInWindow, getIntervalMs, getHardDeadlineMs } = require('../services/checkInWindowService');
+const {
+  armCheckInWindowRespectingSleep,
+  getIntervalMs,
+  getHardDeadlineMs,
+} = require('../services/checkInWindowService');
+const { getEffectiveDndState, resolveTimezone } = require('../services/sleepWindowService');
+const { buildUserResponse } = require('../services/userResponseService');
 
 // Get user profile
 exports.getProfile = async (req, res) => {
@@ -13,7 +19,7 @@ exports.getProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.status(200).json(user);
+    res.status(200).json(buildUserResponse(user));
   } catch (error) {
     res.status(500).json({
       message: 'Error fetching user profile',
@@ -49,7 +55,7 @@ exports.updateProfile = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    res.status(200).json(updatedUser);
+    res.status(200).json(buildUserResponse(updatedUser));
   } catch (error) {
     res.status(500).json({
       message: 'Error updating user profile',
@@ -111,10 +117,39 @@ exports.updateCheckIn = async (req, res) => {
   }
 };
 
-// Update check-in settings (interval, countdown, DND)
+async function resolveLatestPendingSession(userId) {
+  return CheckInSession.findOne({
+    user: userId,
+    status: 'pending',
+  })
+    .sort({ createdAt: -1 })
+    .exec();
+}
+
+async function cancelPendingSession(userId, now, reason) {
+  const pending = await resolveLatestPendingSession(userId);
+  if (!pending) {
+    return null;
+  }
+
+  pending.status = 'expired';
+  pending.resolvedAt = now;
+  await pending.save();
+  return pending;
+}
+
+// Update check-in settings (interval, countdown, DND, sleep timer)
 exports.updateSettings = async (req, res) => {
   try {
-    const { checkInIntervalHours, emergencyCountdownMinutes, dnd } = req.body;
+    const {
+      checkInIntervalHours,
+      emergencyCountdownMinutes,
+      dnd,
+      sleepTimerEnabled,
+      sleepStartHour,
+      sleepEndHour,
+      sleepTimezone,
+    } = req.body;
 
     const user = await User.findById(req.userId).select('-password');
     if (!user) {
@@ -130,38 +165,43 @@ exports.updateSettings = async (req, res) => {
     if (typeof dnd === 'boolean') {
       user.dnd = dnd;
     }
+    if (typeof sleepTimerEnabled === 'boolean') {
+      user.sleepTimerEnabled = sleepTimerEnabled;
+    }
+    if (Number.isInteger(sleepStartHour) && sleepStartHour >= 0 && sleepStartHour <= 23) {
+      user.sleepStartHour = sleepStartHour;
+    }
+    if (Number.isInteger(sleepEndHour) && sleepEndHour >= 0 && sleepEndHour <= 23) {
+      user.sleepEndHour = sleepEndHour;
+    }
+    if (typeof sleepTimezone === 'string') {
+      user.sleepTimezone = resolveTimezone(sleepTimezone);
+    }
 
     // If the user is not in an emergency, schedule (or disable) the next check-in.
     if (user.checkInStatus !== 'emergency') {
       const now = new Date();
+      const effectiveState = getEffectiveDndState(user, now);
 
-      if (user.dnd === true) {
+      if (effectiveState.effectiveDnd === true) {
         // DND means: no check-in sessions / pushes should be produced.
         user.checkInStatus = 'ok';
-        user.nextCheckInAt = null;
-        user.checkInHardDeadlineAt = null;
+        await cancelPendingSession(req.userId, now, effectiveState.dndReason || 'suppressed');
 
-        // If there is an active pending session, mark it OK so it doesn't escalate.
-        const pending = await CheckInSession.findOne({
-          user: req.userId,
-          status: 'pending',
-        })
-          .sort({ createdAt: -1 })
-          .exec();
-
-        if (pending) {
-          pending.status = 'ok';
-          pending.resolvedAt = now;
-          await pending.save();
+        if (effectiveState.dndReason === 'manual') {
+          user.nextCheckInAt = null;
+          user.checkInHardDeadlineAt = null;
+        } else {
+          armCheckInWindowRespectingSleep(user, now);
         }
       } else {
-        armCheckInWindow(user, now);
+        armCheckInWindowRespectingSleep(user, now);
       }
     }
 
     await user.save();
 
-    res.status(200).json(user);
+    res.status(200).json(buildUserResponse(user));
   } catch (error) {
     res.status(500).json({
       message: 'Error updating settings',
@@ -193,6 +233,8 @@ exports.updateActivity = async (req, res) => {
     return res.status(200).json({
       ok: true,
       dnd: user.dnd,
+      effectiveDnd: getEffectiveDndState(user, now).effectiveDnd,
+      dndReason: getEffectiveDndState(user, now).dndReason,
       isActive: user.isActive,
       lastActiveAt: user.lastActiveAt,
       nextCheckInAt: user.nextCheckInAt,
@@ -231,17 +273,19 @@ exports.resetCheckInWindow = async (req, res) => {
       return res.status(404).json({ message: 'User not found', requestId });
     }
 
+    const effectiveState = getEffectiveDndState(user, now);
+
     console.log(
-      `${logPrefix} userState checkInStatus=${user.checkInStatus} dnd=${user.dnd} nextCheckInAt=${
+      `${logPrefix} userState checkInStatus=${user.checkInStatus} dnd=${user.dnd} effectiveDnd=${effectiveState.effectiveDnd} dndReason=${effectiveState.dndReason || 'none'} nextCheckInAt=${
         user.nextCheckInAt ? user.nextCheckInAt.toISOString() : 'null'
       } hardDeadlineAt=${user.checkInHardDeadlineAt ? user.checkInHardDeadlineAt.toISOString() : 'null'}`,
     );
 
-    if (user.dnd === true) {
-      console.log(`${logPrefix} ignore reason=dnd-enabled`);
+    if (effectiveState.effectiveDnd === true) {
+      console.log(`${logPrefix} ignore reason=${effectiveState.dndReason || 'dnd-enabled'}`);
       return res
         .status(200)
-        .json({ ok: false, ignored: true, reason: 'dnd-enabled', requestId });
+        .json({ ok: false, ignored: true, reason: effectiveState.dndReason || 'dnd-enabled', requestId });
     }
 
     if (user.checkInStatus === 'emergency') {
@@ -406,8 +450,14 @@ exports.sendTestNotification = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.dnd === true) {
-      return res.status(200).json({ message: 'Notifications are currently silenced (DND enabled)' });
+    const effectiveState = getEffectiveDndState(user);
+
+    if (effectiveState.effectiveDnd === true) {
+      const reason =
+        effectiveState.dndReason === 'sleep'
+          ? 'Notifications are currently silenced by the sleep timer'
+          : 'Notifications are currently silenced (DND enabled)';
+      return res.status(200).json({ message: reason });
     }
 
     const result = await sendTestNotification(user);

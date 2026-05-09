@@ -1,7 +1,7 @@
 const CheckInSession = require('../models/CheckInSession');
 const User = require('../models/User');
 const { initiateEmergencyProtocol } = require('../services/emergencyProtocolService');
-const { armCheckInWindow } = require('../services/checkInWindowService');
+const { armCheckInWindowRespectingSleep } = require('../services/checkInWindowService');
 
 exports.startSession = async (req, res) => {
   try {
@@ -48,7 +48,7 @@ exports.getActiveSession = async (req, res) => {
       .sort({ createdAt: -1 })
       .exec();
 
-    if (!session) {
+    if (!session || !['pending', 'emergency'].includes(session.status)) {
       return res.status(200).json({ session: null });
     }
 
@@ -98,7 +98,7 @@ exports.respondOk = async (req, res) => {
     user.checkInStatus = 'ok';
 
     // Schedule the next window and reset hard-deadline cap.
-    armCheckInWindow(user, now);
+    armCheckInWindowRespectingSleep(user, now);
 
     await user.save();
 

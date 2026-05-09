@@ -41,7 +41,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const activeSessionRef = useRef<CheckInSession | null>(null);
   const tokenRef = useRef<string | null>(null);
 
-  const notificationsSilenced = user?.dnd ?? false;
+  const notificationsSilenced = user?.effectiveDnd ?? user?.dnd ?? false;
 
   // Keep refs in sync with state
   useEffect(() => {

@@ -9,6 +9,7 @@ import ServicesTab from '../services/ServicesTab';
 import RemindersTab from '../reminders/RemindersTab';
 import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
+import SubscriptionScreen from '../subscription/SubscriptionScreen';
 import TestTab from '../test/TestTab';
 
 type MainTabKey =
@@ -18,6 +19,7 @@ type MainTabKey =
   | 'services'
   | 'reminders'
   | 'settings'
+  | 'subscription'
   | 'emergency'
   | 'test';
 
@@ -57,6 +59,8 @@ const MainScreen: React.FC = () => {
         return <RemindersTab />;
       case 'settings':
         return <SettingsTab />;
+      case 'subscription':
+        return <SubscriptionScreen />;
       case 'emergency':
         return <EmergencyContactsTab />;
       case 'test':
@@ -191,6 +195,14 @@ const MainScreen: React.FC = () => {
             </Button>
 
             <View height={1} backgroundColor="$borderColor" opacity={0.4} marginVertical="$2" />
+
+            <Button
+              size="$4"
+              variant={activeTab === 'subscription' ? 'solid' : 'outlined'}
+              onPress={() => handleSelectTab('subscription')}
+            >
+              Subscription
+            </Button>
 
             <Button
               size="$4"

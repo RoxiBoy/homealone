@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { armCheckInWindow, getHardDeadlineMs } = require('../services/checkInWindowService');
+const {
+  armCheckInWindowRespectingSleep,
+  getHardDeadlineMs,
+} = require('../services/checkInWindowService');
+const { buildUserResponse } = require('../services/userResponseService');
 
 // Register a new user
 exports.register = async (req, res) => {
@@ -68,7 +72,7 @@ exports.login = async (req, res) => {
         const now = new Date();
         // If nothing scheduled yet or the scheduled time is in the past, schedule a new one.
         if (!user.nextCheckInAt || user.nextCheckInAt <= now) {
-          const result = armCheckInWindow(user, now);
+          const result = armCheckInWindowRespectingSleep(user, now);
           if (result) {
             await user.save();
             console.log(
@@ -102,7 +106,7 @@ exports.login = async (req, res) => {
     // Return user info and token
     res.status(200).json({
         token,
-        user: {
+        user: buildUserResponse({
             id: user._id,
             username: user.username,
             name: user.name,
@@ -112,8 +116,12 @@ exports.login = async (req, res) => {
             checkInIntervalHours: user.checkInIntervalHours,
             emergencyCountdownMinutes: user.emergencyCountdownMinutes,
             dnd: user.dnd ?? false,
+            sleepTimerEnabled: user.sleepTimerEnabled ?? false,
+            sleepStartHour: user.sleepStartHour,
+            sleepEndHour: user.sleepEndHour,
+            sleepTimezone: user.sleepTimezone,
             isActive: user.isActive ?? false,
-        },
+        }),
     });
     } catch (error) {
         res.status(500).json({

@@ -2,6 +2,8 @@ const User = require('./models/User');
 const CheckInSession = require('./models/CheckInSession');
 const { sendCheckInNotification } = require('./services/pushService');
 const { initiateEmergencyProtocol } = require('./services/emergencyProtocolService');
+const { getEffectiveDndState } = require('./services/sleepWindowService');
+const { armCheckInWindowRespectingSleep } = require('./services/checkInWindowService');
 
 const SCHEDULER_INTERVAL_MS = 5000; // run every 60 seconds
 
@@ -24,6 +26,53 @@ async function schedulerTick() {
         console.error(
           '[CheckInScheduler] Error escalating overdue session',
           session._id.toString(),
+          err,
+        );
+      }
+    }
+
+    const pendingUsers = await User.find({
+      checkInStatus: 'pending',
+    }).exec();
+
+    for (const user of pendingUsers) {
+      try {
+        const effectiveState = getEffectiveDndState(user, now);
+        if (effectiveState.dndReason !== 'sleep') {
+          continue;
+        }
+
+        const pendingSession = await CheckInSession.findOne({
+          user: user._id,
+          status: 'pending',
+        })
+          .sort({ createdAt: -1 })
+          .exec();
+
+        if (!pendingSession) {
+          user.checkInStatus = 'ok';
+          await user.save();
+          continue;
+        }
+
+        pendingSession.status = 'expired';
+        pendingSession.resolvedAt = now;
+        await pendingSession.save();
+
+        user.checkInStatus = 'ok';
+        armCheckInWindowRespectingSleep(user, now);
+        await user.save();
+
+        console.log(
+          '[CheckInScheduler] Cancelled pending check-in due to sleep window for user',
+          user._id.toString(),
+          'session',
+          pendingSession._id.toString(),
+        );
+      } catch (err) {
+        console.error(
+          '[CheckInScheduler] Error cancelling pending sleep-window session for user',
+          user._id.toString(),
           err,
         );
       }
@@ -52,11 +101,24 @@ async function schedulerTick() {
         }
 
         // 1) DND: disable check-in alerts entirely
-        if (user.dnd === true) {
-          console.log('[CheckInScheduler] DND enabled - skipping check-in for user', user._id.toString());
-          user.checkInStatus = 'ok';
-          user.nextCheckInAt = null;
-          user.checkInHardDeadlineAt = null;
+        const effectiveState = getEffectiveDndState(user, now);
+
+        if (effectiveState.effectiveDnd === true) {
+          console.log(
+            '[CheckInScheduler] DND enabled - skipping check-in for user',
+            user._id.toString(),
+            'reason',
+            effectiveState.dndReason,
+          );
+
+          if (effectiveState.dndReason === 'manual') {
+            user.checkInStatus = 'ok';
+            user.nextCheckInAt = null;
+            user.checkInHardDeadlineAt = null;
+          } else {
+            armCheckInWindowRespectingSleep(user, now);
+          }
+
           await user.save();
           continue;
         }

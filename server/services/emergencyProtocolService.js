@@ -4,7 +4,6 @@ const Friend = require('../models/Friend');
 const { sendSms } = require('./smsService');
 const { placeEmergencyCall } = require('./voiceCallService');
 const { sendEmail } = require('./brevoEmailService');
-
 async function initiateEmergencyProtocol({
   sessionId,
   userId,
@@ -105,9 +104,12 @@ async function initiateEmergencyProtocol({
   );
 
   console.log('[emergencyProtocolService] Sms and Calling and Email point reached')
-  const smsResult = await sendSms(userName, fullPhoneNumber);
-  const callResult = await placeEmergencyCall(userName, fullPhoneNumber, priorityFriend.name);
-  let emailResult = { ok: false, reason: 'missing-email' };
+  const smsResult = "Disabled Sms, Point Reached"
+  const callResult = "Disabled Calling, Point Reached"
+  const emailResult = "Disabled Emails, Point Reached"
+  // const smsResult = await sendSms(userName, fullPhoneNumber);
+  // const callResult = await placeEmergencyCall(userName, fullPhoneNumber, priorityFriend.name);
+  // let emailResult = { ok: false, reason: 'missing-email' };
 
   if (priorityFriend.email) {
     emailResult = await sendEmail(userName, priorityFriend.name, priorityFriend.email);

@@ -41,6 +41,27 @@ const userSchema = new mongoose.Schema(
         required: true,
         default: false
     },
+    sleepTimerEnabled: {
+        type: Boolean,
+        default: false,
+    },
+    sleepStartHour: {
+        type: Number,
+        default: 21,
+        min: 0,
+        max: 23,
+    },
+    sleepEndHour: {
+        type: Number,
+        default: 7,
+        min: 0,
+        max: 23,
+    },
+    sleepTimezone: {
+        type: String,
+        default: 'UTC',
+        trim: true,
+    },
     // Client-side app state reported to the backend (used to suppress check-in alerts)
     isActive: {
         type: Boolean,
@@ -78,6 +99,39 @@ const userSchema = new mongoose.Schema(
         type: String,
         enum: ['ok', 'pending', 'emergency'],
         default: 'ok',
+    },
+    // Subscription fields for payment integration
+    subscription: {
+        plan: {
+            type: String,
+            enum: ['free', 'monthly', 'yearly'],
+            default: 'free'
+        },
+        stripeCustomerId: {
+            type: String,
+            default: null
+        },
+        stripeSubscriptionId: {
+            type: String,
+            default: null
+        },
+        stripeSubscriptionStatus: {
+            type: String,
+            enum: ['active', 'past_due', 'canceled', 'incomplete', 'trialing', null],
+            default: null
+        },
+        subscriptionStartDate: {
+            type: Date,
+            default: null
+        },
+        subscriptionEndDate: {
+            type: Date,
+            default: null
+        },
+        autoRenew: {
+            type: Boolean,
+            default: true
+        }
     },
   },
   {

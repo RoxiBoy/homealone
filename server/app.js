@@ -13,6 +13,7 @@ const emergencyContactRoutes = require('./routes/emergencyContactRoutes');
 const reminderRoutes = require('./routes/reminderRoutes');
 const tipRoutes = require('./routes/tipRoutes');
 const checkInSessionRoutes = require('./routes/checkInSessionRoutes');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 // Initialize express app
 const app = express();
@@ -21,6 +22,7 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 app.use(morgan('dev'));
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
 // Routes
@@ -31,6 +33,7 @@ app.use('/api/emergency-contact', emergencyContactRoutes);
 app.use('/api/reminders', reminderRoutes);
 app.use('/api/tips', tipRoutes);
 app.use('/api/checkins', checkInSessionRoutes);
+app.use('/api/payments', paymentRoutes);
 
 // const { sendSms } = require("./services/smsService")
 

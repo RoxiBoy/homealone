@@ -122,7 +122,7 @@ const TestTab: React.FC = () => {
       });
 
       appendLog(
-        `Server settings saved: dnd=${updatedUser?.dnd}, status=${updatedUser?.checkInStatus}, nextCheckInAt=${updatedUser?.nextCheckInAt || 'null'}`,
+        `Server settings saved: dnd=${updatedUser?.dnd}, effectiveDnd=${updatedUser?.effectiveDnd}, reason=${updatedUser?.dndReason || 'none'}, status=${updatedUser?.checkInStatus}, nextCheckInAt=${updatedUser?.nextCheckInAt || 'null'}`,
       );
 
       const delayMs = intervalM * 60 * 1000;

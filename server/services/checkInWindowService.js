@@ -1,3 +1,5 @@
+const { getSleepWindowState } = require('./sleepWindowService');
+
 const DEFAULT_INTERVAL_HOURS = 2;
 const DEFAULT_HARD_DEADLINE_HOURS = 4;
 
@@ -32,8 +34,24 @@ function armCheckInWindow(user, baseTime = new Date()) {
   return { nextCheckInAt, checkInHardDeadlineAt };
 }
 
+function armCheckInWindowRespectingSleep(user, baseTime = new Date()) {
+  const intervalMs = getIntervalMs(user.checkInIntervalHours);
+  if (!intervalMs) {
+    return null;
+  }
+
+  const sleepState = getSleepWindowState(user, baseTime);
+  if (sleepState.sleepActive && typeof sleepState.secondsUntilSleepEnd === 'number') {
+    const wakeTime = new Date(baseTime.getTime() + sleepState.secondsUntilSleepEnd * 1000);
+    return armCheckInWindow(user, wakeTime);
+  }
+
+  return armCheckInWindow(user, baseTime);
+}
+
 module.exports = {
   armCheckInWindow,
+  armCheckInWindowRespectingSleep,
   getIntervalMs,
   getHardDeadlineMs,
 };

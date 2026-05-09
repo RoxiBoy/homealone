@@ -26,6 +26,12 @@ export type AuthUser = {
   checkInIntervalHours?: number;
   emergencyCountdownMinutes?: number;
   dnd: boolean;
+  sleepTimerEnabled?: boolean;
+  sleepStartHour?: number;
+  sleepEndHour?: number;
+  sleepTimezone?: string;
+  effectiveDnd?: boolean;
+  dndReason?: 'manual' | 'sleep' | null;
   isActive: boolean;
 };
 
@@ -59,6 +65,15 @@ const normalizeUser = (raw: any): AuthUser => {
   return {
     ...raw,
     dnd: typeof raw?.dnd === 'boolean' ? raw.dnd : false,
+    sleepTimerEnabled: typeof raw?.sleepTimerEnabled === 'boolean' ? raw.sleepTimerEnabled : false,
+    sleepStartHour: Number.isInteger(raw?.sleepStartHour) ? raw.sleepStartHour : 21,
+    sleepEndHour: Number.isInteger(raw?.sleepEndHour) ? raw.sleepEndHour : 7,
+    sleepTimezone: typeof raw?.sleepTimezone === 'string' ? raw.sleepTimezone : 'UTC',
+    effectiveDnd: typeof raw?.effectiveDnd === 'boolean' ? raw.effectiveDnd : (typeof raw?.dnd === 'boolean' ? raw.dnd : false),
+    dndReason:
+      raw?.dndReason === 'manual' || raw?.dndReason === 'sleep'
+        ? raw.dndReason
+        : null,
     isActive: typeof raw?.isActive === 'boolean' ? raw.isActive : false,
   } as AuthUser;
 };
