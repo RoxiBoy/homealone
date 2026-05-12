@@ -86,6 +86,7 @@ exports.respondOk = async (req, res) => {
 
     const now = new Date();
     session.status = 'ok';
+    session.resolutionReason = 'ok';
     session.resolvedAt = now;
     await session.save();
 

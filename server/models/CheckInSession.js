@@ -12,6 +12,17 @@ const checkInSessionSchema = new mongoose.Schema(
       enum: ['pending', 'ok', 'emergency', 'expired'],
       default: 'pending',
     },
+    resolutionReason: {
+      type: String,
+      enum: [
+        'ok',
+        'manual_emergency',
+        'timeout_emergency',
+        'sleep_window',
+        'suppressed',
+      ],
+      default: null,
+    },
     responseDeadline: {
       type: Date,
       required: true,

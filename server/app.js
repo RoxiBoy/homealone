@@ -14,6 +14,7 @@ const reminderRoutes = require('./routes/reminderRoutes');
 const tipRoutes = require('./routes/tipRoutes');
 const checkInSessionRoutes = require('./routes/checkInSessionRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 // Initialize express app
 const app = express();
@@ -34,6 +35,7 @@ app.use('/api/reminders', reminderRoutes);
 app.use('/api/tips', tipRoutes);
 app.use('/api/checkins', checkInSessionRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/admin', adminRoutes);
 
 // const { sendSms } = require("./services/smsService")
 

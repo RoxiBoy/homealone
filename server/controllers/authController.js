@@ -98,6 +98,7 @@ exports.login = async (req, res) => {
         username: user.username,
         name: user.name,
         email: user.email,
+        role: user.role || 'user',
       },
       process.env.JWT_SECRET || 'your-secret-key',
       { expiresIn: '7d' }
@@ -106,22 +107,7 @@ exports.login = async (req, res) => {
     // Return user info and token
     res.status(200).json({
         token,
-        user: buildUserResponse({
-            id: user._id,
-            username: user.username,
-            name: user.name,
-            email: user.email,
-            phone: user.phone,
-            age: user.age,
-            checkInIntervalHours: user.checkInIntervalHours,
-            emergencyCountdownMinutes: user.emergencyCountdownMinutes,
-            dnd: user.dnd ?? false,
-            sleepTimerEnabled: user.sleepTimerEnabled ?? false,
-            sleepStartHour: user.sleepStartHour,
-            sleepEndHour: user.sleepEndHour,
-            sleepTimezone: user.sleepTimezone,
-            isActive: user.isActive ?? false,
-        }),
+        user: buildUserResponse(user),
     });
     } catch (error) {
         res.status(500).json({

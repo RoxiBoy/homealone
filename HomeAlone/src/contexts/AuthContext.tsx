@@ -19,6 +19,7 @@ import {
 export type AuthUser = {
   id: string;
   username: string;
+  role?: 'user' | 'admin';
   name?: string;
   email?: string;
   phone?: string;

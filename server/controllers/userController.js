@@ -9,6 +9,7 @@ const {
 } = require('../services/checkInWindowService');
 const { getEffectiveDndState, resolveTimezone } = require('../services/sleepWindowService');
 const { buildUserResponse } = require('../services/userResponseService');
+const { getUserDashboardStats } = require('../services/statsService');
 
 // Get user profile
 exports.getProfile = async (req, res) => {
@@ -25,6 +26,20 @@ exports.getProfile = async (req, res) => {
       message: 'Error fetching user profile',
       error: error.message,
     });
+  }
+};
+
+exports.getDashboard = async (req, res, next) => {
+  try {
+    const dashboard = await getUserDashboardStats(req.userId);
+
+    if (!dashboard) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.status(200).json(dashboard);
+  } catch (error) {
+    return next(error);
   }
 };
 
@@ -133,6 +148,7 @@ async function cancelPendingSession(userId, now, reason) {
   }
 
   pending.status = 'expired';
+  pending.resolutionReason = reason === 'suppressed' ? 'suppressed' : 'sleep_window';
   pending.resolvedAt = now;
   await pending.save();
   return pending;

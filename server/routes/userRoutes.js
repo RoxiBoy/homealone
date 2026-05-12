@@ -9,6 +9,9 @@ router.use(authMiddleware);
 // Get user profile
 router.get('/profile', userController.getProfile);
 
+// Dashboard overview
+router.get('/dashboard', userController.getDashboard);
+
 // Update user profile
 router.put('/profile', userController.updateProfile);
 

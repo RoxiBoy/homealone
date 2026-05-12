@@ -56,6 +56,7 @@ async function schedulerTick() {
         }
 
         pendingSession.status = 'expired';
+        pendingSession.resolutionReason = 'sleep_window';
         pendingSession.resolvedAt = now;
         await pendingSession.save();
 

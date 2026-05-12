@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { StyleSheet } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import { TamaguiProvider } from 'tamagui'
 import { View, Text } from 'tamagui'
@@ -6,6 +7,7 @@ import { config } from './tamagui.config'
 import { AuthProvider, useAuth } from './src/contexts/AuthContext'
 import { CheckInProvider } from './src/contexts/CheckInContext'
 import { PaymentProvider } from './src/contexts/PaymentContext'
+import { DashboardProvider } from './src/contexts/DashboardContext'
 import LoginScreen from './src/screens/auth/LoginScreen'
 import RegisterScreen from './src/screens/auth/RegisterScreen'
 import MainScreen from './src/screens/main/MainScreen'
@@ -37,12 +39,14 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <TamaguiProvider config={config}>
-        <SafeAreaView style={{ flex: 1 }}>
+        <SafeAreaView style={styles.safeArea}>
           <AuthProvider>
             <PaymentProvider>
-              <CheckInProvider>
-                <RootNavigator />
-              </CheckInProvider>
+              <DashboardProvider>
+                <CheckInProvider>
+                  <RootNavigator />
+                </CheckInProvider>
+              </DashboardProvider>
             </PaymentProvider>
           </AuthProvider>
         </SafeAreaView>
@@ -50,3 +54,9 @@ export default function App() {
     </SafeAreaProvider>
   )
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+  },
+})

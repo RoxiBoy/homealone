@@ -1,6 +1,7 @@
 const CheckInSession = require('../models/CheckInSession');
 const User = require('../models/User');
 const Friend = require('../models/Friend');
+const EmergencyAlert = require('../models/EmergencyAlert');
 const { sendSms } = require('./smsService');
 const { placeEmergencyCall } = require('./voiceCallService');
 const { sendEmail } = require('./brevoEmailService');
@@ -27,6 +28,7 @@ async function initiateEmergencyProtocol({
     {
       $set: {
         status: 'emergency',
+        resolutionReason: ignoreDeadline ? 'manual_emergency' : 'timeout_emergency',
         resolvedAt: now,
       },
     },
@@ -103,10 +105,10 @@ async function initiateEmergencyProtocol({
     `${logPrefix} sending notifications to ${priorityFriend.name} phone=${fullPhoneNumber} email=${priorityFriend.email || 'n/a'}`,
   );
 
-  console.log('[emergencyProtocolService] Sms and Calling and Email point reached')
-  const smsResult = "Disabled Sms, Point Reached"
-  const callResult = "Disabled Calling, Point Reached"
-  const emailResult = "Disabled Emails, Point Reached"
+  console.log('[emergencyProtocolService] Sms and Calling and Email point reached');
+  const smsResult = 'Disabled Sms, Point Reached';
+  const callResult = 'Disabled Calling, Point Reached';
+  let emailResult = 'Disabled Emails, Point Reached';
   // const smsResult = await sendSms(userName, fullPhoneNumber);
   // const callResult = await placeEmergencyCall(userName, fullPhoneNumber, priorityFriend.name);
   // let emailResult = { ok: false, reason: 'missing-email' };
@@ -116,6 +118,36 @@ async function initiateEmergencyProtocol({
   } else {
     console.log(`${logPrefix} skipping email because contact has no email`);
   }
+
+  const channels = ['sms', 'voice'];
+  if (priorityFriend.email) {
+    channels.push('email');
+  }
+
+  const notificationStatus =
+    [smsResult, callResult, emailResult].some(result => {
+      if (!result || typeof result !== 'object') {
+        return true;
+      }
+
+      return result.ok !== false;
+    })
+      ? 'sent'
+      : 'failed';
+
+  await EmergencyAlert.create({
+    user: user._id,
+    session: session._id,
+    contact: priorityFriend._id,
+    channels,
+    status: notificationStatus,
+    failureReason: notificationStatus === 'failed' ? 'all-channels-failed' : null,
+    channelResults: {
+      sms: smsResult,
+      voice: callResult,
+      email: emailResult,
+    },
+  });
 
   return {
     ok: true,
