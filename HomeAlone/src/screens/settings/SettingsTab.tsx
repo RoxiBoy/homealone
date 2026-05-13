@@ -4,6 +4,11 @@ import { View, Text, Button, YStack, XStack } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../config/api';
+import { AppCard } from '../../components/AppCard';
+import { AppToggle } from '../../components/AppToggle';
+import { AppSectionHeader } from '../../components/AppSectionHeader';
+import { TimerWheel } from '../../components/TimerWheel';
+import { colors } from '../../theme/colors';
 
 const ACTIVITY_SETTINGS_KEY = '@homealone/activity-settings';
 
@@ -95,6 +100,12 @@ const buildSettingsFromPayload = (
       ? payload.dndReason
       : fallback.dndReason,
 });
+
+const formatters = {
+  interval: (h: number) => `${h} ${h === 1 ? 'hour' : 'hours'}`,
+  countdown: (m: number) => `${m} ${m === 1 ? 'min' : 'mins'}`,
+  hour: (h: number) => formatHourLabel(h),
+};
 
 const SettingsTab: React.FC = () => {
   const { token, notificationsEnabled, user, updateUser } = useAuth();
@@ -246,205 +257,187 @@ const SettingsTab: React.FC = () => {
   };
 
   return (
-    <ScrollView style={{ flex: 1 }}>
-      <YStack space="$4" padding="$4">
-        <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4">
-          <XStack alignItems="center" justifyContent="space-between">
-            <YStack flex={1} marginRight="$3">
-              <Text fontSize="$6" fontWeight="600">
-                Manual Do Not Disturb
-              </Text>
-              <Text fontSize="$3" color="$color11">
-                When enabled, HomeAlone will not send check-in alerts until you turn it off again.
-              </Text>
-            </YStack>
-
-            <Button
-              size="$3"
-              variant={settings.dnd ? 'solid' : 'outlined'}
-              onPress={() => updateSettingsPartial({ dnd: !settings.dnd })}
-            >
-              <Text color="$color12">{settings.dnd ? 'On' : 'Off'}</Text>
-            </Button>
-          </XStack>
-
-          <Text fontSize="$3" color="$color11" marginTop="$2">
-            {dndStatusText}
-          </Text>
-        </View>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+      <YStack padding={16} space={16}>
+        <AppSectionHeader
+          title="Settings"
+          subtitle="Customize your safety check-in preferences."
+        />
 
         {notificationsEnabled === false && (
-          <View backgroundColor="#330000" borderRadius="$4" padding="$3">
-            <Text color="red" fontWeight="600" marginBottom="$1">
+          <AppCard accent="danger">
+            <Text fontSize={15} fontWeight="600" color={colors.accent.danger}>
               Notifications are disabled or not available.
             </Text>
-            <Text fontSize="$3" color="$color11">
+            <Text fontSize={13} color={colors.text.secondary} marginTop={4}>
               Check-ins will not be reliable unless you enable notifications for HomeAlone in your
               device settings.
             </Text>
-          </View>
+          </AppCard>
         )}
 
         {user?.isActive ? (
-          <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$3">
-            <Text fontSize="$3" color="$color11">
+          <AppCard>
+            <Text fontSize={15} color={colors.text.secondary}>
               App is active: check-in alerts are currently silenced while you use HomeAlone.
             </Text>
-          </View>
+          </AppCard>
         ) : null}
 
-        <Text fontSize="$7" fontWeight="700">
-          Check-in Settings
-        </Text>
-        <Text fontSize="$4" color="$color11">
-          Configure how often the app checks on you and how long to wait before triggering the
-          emergency protocol.
-        </Text>
+        {/* DND Card */}
+        <AppCard>
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack flex={1} marginRight={12}>
+              <Text fontSize={19} fontWeight="600" color={colors.text.primary}>
+                Do Not Disturb
+              </Text>
+              <Text fontSize={13} color={colors.text.secondary} marginTop={2}>
+                Temporarily silence all check-in alerts.
+              </Text>
+            </YStack>
+            <AppToggle
+              checked={settings.dnd}
+              onCheckedChange={(val) =>
+                updateSettingsPartial({ dnd: val })
+              }
+            />
+          </XStack>
+          <Text fontSize={13} color={colors.text.tertiary} marginTop={8}>
+            {dndStatusText}
+          </Text>
+        </AppCard>
 
         {loading ? (
-          <Text marginTop="$4">Loading settings...</Text>
+          <Text fontSize={15} color={colors.text.secondary} textAlign="center" marginTop={16}>
+            Loading settings...
+          </Text>
         ) : (
           <>
-            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$2">
-              <Text fontSize="$6" fontWeight="600" marginBottom="$2">
-                Check-in interval
+            {/* Check-in Interval */}
+            <AppSectionHeader
+              title="Check-in interval"
+              subtitle="How long after your last activity we should wait before checking in on you."
+            />
+            <AppCard accent="primary">
+              <Text fontSize={26} fontWeight="700" color={colors.primary.base} textAlign="center" marginBottom={8}>
+                {formatters.interval(settings.checkInTime)}
               </Text>
-              <Text fontSize="$3" color="$color11" marginBottom="$3">
-                How long after your last activity we should wait before checking in on you.
+              <TimerWheel
+                options={CHECK_IN_OPTIONS}
+                value={settings.checkInTime}
+                onValueChange={(val) => updateSettingsPartial({ checkInTime: val })}
+                formatLabel={formatters.interval}
+              />
+            </AppCard>
+
+            {/* Emergency Countdown */}
+            <AppSectionHeader
+              title="Emergency countdown"
+              subtitle="How long to wait for your response after a check-in before triggering emergency contacts."
+            />
+            <AppCard accent="warning">
+              <Text fontSize={26} fontWeight="700" color={colors.accent.warning} textAlign="center" marginBottom={8}>
+                {formatters.countdown(settings.countdownTime)}
               </Text>
+              <TimerWheel
+                options={COUNTDOWN_OPTIONS}
+                value={settings.countdownTime}
+                onValueChange={(val) => updateSettingsPartial({ countdownTime: val })}
+                formatLabel={formatters.countdown}
+              />
+            </AppCard>
 
-              <XStack flexWrap="wrap" gap="$2">
-                {CHECK_IN_OPTIONS.map(hours => (
-                  <Button
-                    key={hours}
-                    size="$3"
-                    variant={settings.checkInTime === hours ? 'solid' : 'outlined'}
-                    onPress={() => updateSettingsPartial({ checkInTime: hours })}
-                  >
-                    <Text color="$color12">
-                      {hours} {hours === 1 ? 'hour' : 'hours'}
-                    </Text>
-                  </Button>
-                ))}
-              </XStack>
-            </View>
+            {/* Sleep Timer */}
+            <AppSectionHeader
+              title="Sleep timer"
+              subtitle="Silence check-in alerts automatically while you usually sleep."
+            />
 
-            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
-              <Text fontSize="$6" fontWeight="600" marginBottom="$2">
-                Emergency countdown
-              </Text>
-              <Text fontSize="$3" color="$color11" marginBottom="$3">
-                How long to wait for your response after a check-in before triggering emergency
-                contacts.
-              </Text>
-
-              <XStack flexWrap="wrap" gap="$2">
-                {COUNTDOWN_OPTIONS.map(minutes => (
-                  <Button
-                    key={minutes}
-                    size="$3"
-                    variant={settings.countdownTime === minutes ? 'solid' : 'outlined'}
-                    onPress={() => updateSettingsPartial({ countdownTime: minutes })}
-                  >
-                    <Text color="$color12">
-                      {minutes} {minutes === 1 ? 'minute' : 'minutes'}
-                    </Text>
-                  </Button>
-                ))}
-              </XStack>
-            </View>
-
-            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
-              <XStack alignItems="center" justifyContent="space-between" marginBottom="$3">
-                <YStack flex={1} marginRight="$3">
-                  <Text fontSize="$6" fontWeight="600">
-                    Sleep timer
+            <AppCard accent="info">
+              <XStack alignItems="center" justifyContent="space-between" marginBottom={12}>
+                <YStack flex={1} marginRight={12}>
+                  <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
+                    Enable sleep timer
                   </Text>
-                  <Text fontSize="$3" color="$color11">
-                    Silence check-in alerts automatically while you usually sleep.
+                  <Text fontSize={13} color={colors.text.secondary} marginTop={2}>
+                    Timezone: {settings.sleepTimezone}
                   </Text>
                 </YStack>
-
-                <Button
-                  size="$3"
-                  variant={settings.sleepTimerEnabled ? 'solid' : 'outlined'}
-                  onPress={() =>
+                <AppToggle
+                  checked={settings.sleepTimerEnabled}
+                  onCheckedChange={(val) =>
                     updateSettingsPartial({
-                      sleepTimerEnabled: !settings.sleepTimerEnabled,
+                      sleepTimerEnabled: val,
                       sleepTimezone: getDeviceTimezone(),
                     })
                   }
-                >
-                  <Text color="$color12">{settings.sleepTimerEnabled ? 'On' : 'Off'}</Text>
-                </Button>
+                />
               </XStack>
 
-              <Text fontSize="$3" color="$color11" marginBottom="$3">
-                Current timezone: {settings.sleepTimezone}
-              </Text>
-
-              <Text fontSize="$5" fontWeight="600" marginBottom="$2">
-                Sleep starts
-              </Text>
-              <XStack flexWrap="wrap" gap="$2" marginBottom="$4">
-                {HOUR_OPTIONS.map(hour => (
-                  <Button
-                    key={`sleep-start-${hour}`}
-                    size="$2"
-                    variant={settings.sleepStartHour === hour ? 'solid' : 'outlined'}
-                    onPress={() =>
+              <XStack space={16}>
+                <YStack flex={1} alignItems="center">
+                  <Text fontSize={15} fontWeight="600" color={colors.text.secondary} marginBottom={4}>
+                    Sleep starts
+                  </Text>
+                  <Text fontSize={22} fontWeight="700" color={colors.primary.base}>
+                    {formatHourLabel(settings.sleepStartHour)}
+                  </Text>
+                  <TimerWheel
+                    options={HOUR_OPTIONS}
+                    value={settings.sleepStartHour}
+                    onValueChange={(val) =>
                       updateSettingsPartial({
-                        sleepStartHour: hour,
+                        sleepStartHour: val,
                         sleepTimezone: getDeviceTimezone(),
                       })
                     }
-                  >
-                    <Text color="$color12">{formatHourLabel(hour)}</Text>
-                  </Button>
-                ))}
-              </XStack>
+                    formatLabel={formatters.hour}
+                  />
+                </YStack>
 
-              <Text fontSize="$5" fontWeight="600" marginBottom="$2">
-                Sleep ends
-              </Text>
-              <XStack flexWrap="wrap" gap="$2">
-                {HOUR_OPTIONS.map(hour => (
-                  <Button
-                    key={`sleep-end-${hour}`}
-                    size="$2"
-                    variant={settings.sleepEndHour === hour ? 'solid' : 'outlined'}
-                    onPress={() =>
+                <YStack flex={1} alignItems="center">
+                  <Text fontSize={15} fontWeight="600" color={colors.text.secondary} marginBottom={4}>
+                    Sleep ends
+                  </Text>
+                  <Text fontSize={22} fontWeight="700" color={colors.primary.base}>
+                    {formatHourLabel(settings.sleepEndHour)}
+                  </Text>
+                  <TimerWheel
+                    options={HOUR_OPTIONS}
+                    value={settings.sleepEndHour}
+                    onValueChange={(val) =>
                       updateSettingsPartial({
-                        sleepEndHour: hour,
+                        sleepEndHour: val,
                         sleepTimezone: getDeviceTimezone(),
                       })
                     }
-                  >
-                    <Text color="$color12">{formatHourLabel(hour)}</Text>
-                  </Button>
-                ))}
+                    formatLabel={formatters.hour}
+                  />
+                </YStack>
               </XStack>
-            </View>
+            </AppCard>
 
-            <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
-              <Text fontSize="$5" fontWeight="600" marginBottom="$2">
-                How it works
-              </Text>
-              <Text fontSize="$3" color="$color11" marginBottom="$1">
-                1. If no activity is detected for the check-in interval, you will receive a
-                notification asking if you are okay.
-              </Text>
-              <Text fontSize="$3" color="$color11" marginBottom="$1">
-                2. If you do not respond within the countdown window, your emergency contacts can be
-                notified.
-              </Text>
-              <Text fontSize="$3" color="$color11" marginBottom="$1">
-                3. Manual DND silences alerts until you turn it off.
-              </Text>
-              <Text fontSize="$3" color="$color11">
-                4. The sleep timer silences alerts automatically during your chosen sleep hours.
-              </Text>
-            </View>
+            {/* How it works */}
+            <AppSectionHeader title="How it works" />
+            <AppCard>
+              <YStack space={10}>
+                {[
+                  'If no activity is detected for the check-in interval, you will receive a notification asking if you are okay.',
+                  'If you do not respond within the countdown window, your emergency contacts can be notified.',
+                  'Manual DND silences alerts until you turn it off.',
+                  'The sleep timer silences alerts automatically during your chosen sleep hours.',
+                ].map((text, i) => (
+                  <XStack key={i} gap={10} alignItems="flex-start">
+                    <Text fontSize={15} color={colors.primary.base} fontWeight="700">
+                      {i + 1}.
+                    </Text>
+                    <Text fontSize={15} color={colors.text.secondary} flex={1}>
+                      {text}
+                    </Text>
+                  </XStack>
+                ))}
+              </YStack>
+            </AppCard>
           </>
         )}
       </YStack>

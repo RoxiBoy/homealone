@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext';
 import { apiFetch } from '../config/api';
 import { onCheckInPush } from '../services/checkInEvents';
 import { clearFullScreenCheckInAlert } from '../services/fullScreenCheckIn';
+import { colors } from '../theme/colors';
 
 export type CheckInSession = {
   _id: string;
@@ -371,33 +372,58 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
           left={0}
           right={0}
           bottom={0}
-          backgroundColor="rgba(0,0,0,0.8)"
+          backgroundColor={colors.overlay}
           justifyContent="center"
           alignItems="center"
         >
           <YStack
             width="85%"
-            padding="$4"
-            space="$3"
-            backgroundColor="$backgroundStrong"
-            borderRadius="$4"
+            padding={24}
+            space={16}
+            backgroundColor={colors.bg.card}
+            borderRadius={24}
           >
-            <Text fontSize="$7" fontWeight="700" textAlign="center">
-              Are you okay?
+            <Text
+              fontSize={26}
+              fontWeight="700"
+              textAlign="center"
+              color={colors.text.primary}
+            >
+              {'\uD83D\uDC4D'} Are you okay?
             </Text>
-            <Text fontSize="$4" color="$color11" textAlign="center">
+            <Text fontSize={15} color={colors.text.secondary} textAlign="center">
               Please confirm your safety.
             </Text>
-            <Text fontSize="$4" fontWeight="600" textAlign="center">
-              Time remaining: {countdownSeconds}s
+            <Text fontSize={38} fontWeight="700" textAlign="center" color={colors.primary.base}>
+              {countdownSeconds}s
+            </Text>
+            <Text fontSize={13} color={colors.text.tertiary} textAlign="center" marginTop={-8}>
+              time remaining
             </Text>
 
-            <YStack space="$2" marginTop="$2">
-              <Button size="$5" onPress={handleRespondOk}>
-                I'm OK
+            <YStack space={8} marginTop={8}>
+              <Button
+                height={56}
+                borderRadius={14}
+                backgroundColor={colors.accent.success}
+                borderWidth={0}
+                onPress={handleRespondOk}
+              >
+                <Text fontSize={19} fontWeight="700" color="#FFFFFF">
+                  I'm OK
+                </Text>
               </Button>
-              <Button size="$5" variant="outlined" onPress={() => handleNotOkay ()}>
-                I'm Not OK
+              <Button
+                height={52}
+                borderRadius={14}
+                backgroundColor="transparent"
+                borderWidth={1}
+                borderColor={colors.border}
+                onPress={() => handleNotOkay()}
+              >
+                <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
+                  I'm Not OK
+                </Text>
               </Button>
             </YStack>
           </YStack>
@@ -412,30 +438,30 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
           left={0}
           right={0}
           bottom={0}
-          backgroundColor="rgba(0,0,0,0.8)"
+          backgroundColor={colors.overlay}
           justifyContent="center"
           alignItems="center"
         >
           <YStack
             width="90%"
             maxHeight="80%"
-            padding="$4"
-            backgroundColor="$backgroundStrong"
-            borderRadius="$4"
+            padding={24}
+            backgroundColor={colors.bg.card}
+            borderRadius={24}
           >
-            <Text fontSize="$7" fontWeight="700" textAlign="center" marginBottom="$3">
-              Emergency Contacts
+            <Text fontSize={22} fontWeight="700" textAlign="center" color={colors.text.primary} marginBottom={8}>
+              {'\uD83D\uDCDE'} Emergency Contacts
             </Text>
-            <Text fontSize="$4" color="$color11" textAlign="center" marginBottom="$4">
+            <Text fontSize={15} color={colors.text.secondary} textAlign="center" marginBottom={16}>
               Call someone who can help you
             </Text>
 
             <View style={{ maxHeight: 300 }}>
               <ScrollView>
-                <YStack space="$3" paddingBottom="$4">
+                <YStack space={8}>
                   {friends.length === 0 ? (
-                    <View backgroundColor="$backgroundHover" padding="$4" borderRadius="$3">
-                      <Text fontSize="$4" textAlign="center" color="$color11">
+                    <View backgroundColor={colors.bg.subtle} padding={16} borderRadius={12}>
+                      <Text fontSize={15} textAlign="center" color={colors.text.secondary}>
                         No emergency contacts found. Please add contacts in settings.
                       </Text>
                     </View>
@@ -446,29 +472,33 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
                       .map((friend, index) => (
                         <View
                           key={friend._id || `friend-${index}`}
-                          backgroundColor="$backgroundHover"
-                          padding="$3"
-                          borderRadius="$3"
-                          marginBottom="$2"
+                          backgroundColor={colors.bg.subtle}
+                          padding={12}
+                          borderRadius={12}
                         >
                           <XStack alignItems="center" justifyContent="space-between">
-                            <YStack flex={1} marginRight="$3">
-                              <Text fontSize="$5" fontWeight="600">
+                            <YStack flex={1} marginRight={12}>
+                              <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
                                 {friend.name}
                               </Text>
-                              <Text fontSize="$3" color="$color11">
+                              <Text fontSize={13} color={colors.text.secondary}>
                                 Priority {friend.priority}
                               </Text>
-                              <Text fontSize="$3" color="$color11">
+                              <Text fontSize={13} color={colors.text.secondary}>
                                 {friend.countryCode || ''}{friend.phone}
                               </Text>
                             </YStack>
                             <Button
-                              size="$4"
-                              backgroundColor="$green9"
+                              height={44}
+                              borderRadius={12}
+                              backgroundColor={colors.accent.success}
+                              borderWidth={0}
+                              paddingHorizontal={20}
                               onPress={() => handleCallFriend(friend)}
                             >
-                              Call
+                              <Text fontSize={15} fontWeight="700" color="#FFFFFF">
+                                {'\uD83D\uDCDE'} Call
+                              </Text>
                             </Button>
                           </XStack>
                         </View>
@@ -479,12 +509,16 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
             </View>
 
             <Button
-              size="$5"
-              marginTop="$4"
-              backgroundColor="$blue9"
+              height={52}
+              borderRadius={14}
+              backgroundColor={colors.primary.base}
+              borderWidth={0}
+              marginTop={16}
               onPress={handleImSafe}
             >
-              I'm Safe Now
+              <Text fontSize={17} fontWeight="700" color="#FFFFFF">
+                I'm Safe Now
+              </Text>
             </Button>
           </YStack>
         </View>
@@ -498,27 +532,36 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
           left={0}
           right={0}
           bottom={0}
-          backgroundColor="rgba(0,0,0,0.8)"
+          backgroundColor={colors.overlay}
           justifyContent="center"
           alignItems="center"
         >
           <YStack
             width="85%"
-            padding="$4"
-            space="$3"
-            backgroundColor="$backgroundStrong"
-            borderRadius="$4"
+            padding={24}
+            space={16}
+            backgroundColor={colors.bg.card}
+            borderRadius={24}
           >
-            <Text fontSize="$7" fontWeight="700" textAlign="center">
-              Emergency protocol initiated
+            <Text fontSize={22} fontWeight="700" textAlign="center" color={colors.accent.danger}>
+              {'\u26A0\uFE0F'} Emergency Alert Sent
             </Text>
-            <Text fontSize="$4" color="$color11" textAlign="center">
+            <Text fontSize={15} color={colors.text.secondary} textAlign="center">
               Your emergency contact has been notified via SMS and email (if provided). 
               They should reach out to you soon.
             </Text>
 
-            <Button marginTop="$3" onPress={handleClearEmergency}>
-              I'm safe now
+            <Button
+              height={52}
+              borderRadius={14}
+              backgroundColor={colors.primary.base}
+              borderWidth={0}
+              marginTop={8}
+              onPress={handleClearEmergency}
+            >
+              <Text fontSize={17} fontWeight="700" color="#FFFFFF">
+                I'm safe now
+              </Text>
             </Button>
           </YStack>
         </View>

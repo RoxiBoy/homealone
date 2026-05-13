@@ -2,6 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, Linking, Alert } from 'react-native';
 import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { usePayment, SubscriptionPlan } from '../../contexts/PaymentContext';
+import { AppCard } from '../../components/AppCard';
+import { AppStatusBadge } from '../../components/AppStatusBadge';
+import { AppSectionHeader } from '../../components/AppSectionHeader';
+import { colors } from '../../theme/colors';
 
 const PLAN_COPY: Record<
   Exclude<SubscriptionPlan, 'free'>,
@@ -44,24 +48,24 @@ const STATUS_TONE: Record<
   { background: string; text: string; border: string }
 > = {
   success: {
-    background: '$green3',
-    text: '$green11',
-    border: '$green7',
+    background: '#E6F0E6',
+    text: colors.accent.success,
+    border: '#C8DCC8',
   },
   warning: {
-    background: '$yellow3',
-    text: '$yellow11',
-    border: '$yellow7',
+    background: '#F5EDE0',
+    text: colors.accent.warning,
+    border: '#E8DCC8',
   },
   danger: {
-    background: '$red3',
-    text: '$red11',
-    border: '$red7',
+    background: '#F0E4E4',
+    text: colors.accent.danger,
+    border: '#E0C8C8',
   },
   neutral: {
-    background: '$backgroundStrong',
-    text: '$color11',
-    border: '$borderColor',
+    background: colors.bg.subtle,
+    text: colors.text.secondary,
+    border: colors.border,
   },
 };
 
@@ -138,196 +142,177 @@ const SubscriptionScreen: React.FC = () => {
   const statusTone = STATUS_TONE[getStatusTone(subscription?.status)];
 
   return (
-    <ScrollView style={{ flex: 1 }}>
-      <YStack space="$4" padding="$4" backgroundColor="$background">
-        <View backgroundColor="$blue10" borderRadius="$5" padding="$5">
-          <YStack space="$3">
-            <Text fontSize="$8" fontWeight="800" color="white">
-              Choose the right HomeAlone plan
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+      <YStack space={16} padding={16} backgroundColor={colors.bg.base}>
+        {/* Hero banner */}
+        <View
+          backgroundColor={colors.primary.base}
+          borderRadius={20}
+          padding={20}
+        >
+          <YStack space={12}>
+            <Text fontSize={26} fontWeight="800" color="#FFFFFF">
+              Choose the right plan
             </Text>
-            <Text fontSize="$4" color="$blue3">
+            <Text fontSize={15} color="rgba(255,255,255,0.8)">
               Keep safety monitoring active with a simple monthly option or save with yearly billing.
             </Text>
-
-            <XStack flexWrap="wrap" gap="$2">
-              <View backgroundColor="rgba(255,255,255,0.14)" borderRadius="$10" paddingHorizontal="$3" paddingVertical="$2">
-                <Text fontSize="$2" color="white">
-                  Smartphone-based monitoring
-                </Text>
-              </View>
-              <View backgroundColor="rgba(255,255,255,0.14)" borderRadius="$10" paddingHorizontal="$3" paddingVertical="$2">
-                <Text fontSize="$2" color="white">
-                  Trusted contact alerts
-                </Text>
-              </View>
-              <View backgroundColor="rgba(255,255,255,0.14)" borderRadius="$10" paddingHorizontal="$3" paddingVertical="$2">
-                <Text fontSize="$2" color="white">
-                  Cancel anytime
-                </Text>
-              </View>
+            <XStack flexWrap="wrap" gap={8}>
+              {['Smartphone monitoring', 'Contact alerts', 'Cancel anytime'].map(label => (
+                <View
+                  key={label}
+                  backgroundColor="rgba(255,255,255,0.14)"
+                  borderRadius={20}
+                  paddingHorizontal={12}
+                  paddingVertical={6}
+                >
+                  <Text fontSize={12} color="#FFFFFF">
+                    {label}
+                  </Text>
+                </View>
+              ))}
             </XStack>
           </YStack>
         </View>
 
+        {/* Current subscription status */}
         {!!subscription && !isFree && (
-          <View
-            backgroundColor={statusTone.background}
-            borderRadius="$5"
-            borderWidth={1}
-            borderColor={statusTone.border}
-            padding="$4"
-          >
-            <YStack space="$3">
+          <AppCard>
+            <YStack space={12}>
               <XStack alignItems="center" justifyContent="space-between">
                 <YStack>
-                  <Text fontSize="$3" color={statusTone.text}>
+                  <Text fontSize={13} color={statusTone.text}>
                     Current plan
                   </Text>
-                  <Text fontSize="$7" fontWeight="800" color={statusTone.text} textTransform="capitalize">
+                  <Text fontSize={22} fontWeight="800" color={statusTone.text} textTransform="capitalize">
                     {subscription.plan}
                   </Text>
                 </YStack>
-
-                <View
-                  backgroundColor="$background"
-                  borderRadius="$10"
-                  paddingHorizontal="$3"
-                  paddingVertical="$2"
-                >
-                  <Text fontSize="$2" fontWeight="700" color={statusTone.text} textTransform="capitalize">
-                    {subscription.status || 'Pending'}
-                  </Text>
-                </View>
+                <AppStatusBadge
+                  variant={subscription.status === 'active' || subscription.status === 'trialing' ? 'success' : subscription.status === 'canceled' ? 'danger' : 'warning'}
+                  label={subscription.status || 'Pending'}
+                />
               </XStack>
 
-              <XStack flexWrap="wrap" gap="$3">
-                <YStack minWidth={140}>
-                  <Text fontSize="$2" color={statusTone.text}>
+              <XStack gap={12}>
+                <YStack>
+                  <Text fontSize={11} color={statusTone.text}>
                     {subscription.autoRenew ? 'Renews on' : 'Access until'}
                   </Text>
-                  <Text fontSize="$4" fontWeight="700" color={statusTone.text}>
+                  <Text fontSize={15} fontWeight="700" color={statusTone.text}>
                     {formatDate(subscription.endDate)}
                   </Text>
                 </YStack>
-
-                <YStack minWidth={140}>
-                  <Text fontSize="$2" color={statusTone.text}>
+                <YStack>
+                  <Text fontSize={11} color={statusTone.text}>
                     Billing
                   </Text>
-                  <Text fontSize="$4" fontWeight="700" color={statusTone.text}>
+                  <Text fontSize={15} fontWeight="700" color={statusTone.text}>
                     {subscription.autoRenew ? 'Auto-renew on' : 'Auto-renew off'}
                   </Text>
                 </YStack>
               </XStack>
 
-              <XStack gap="$3" flexWrap="wrap">
+              <XStack gap={8} flexWrap="wrap">
                 {showReactivate ? (
                   <Button
-                    size="$4"
-                    backgroundColor="$green9"
+                    height={44}
+                    borderRadius={12}
+                    backgroundColor={colors.accent.success}
+                    borderWidth={0}
+                    paddingHorizontal={20}
                     onPress={handleReactivate}
                     disabled={loading}
                     opacity={loading ? 0.6 : 1}
                   >
-                    Reactivate plan
+                    <Text fontSize={15} fontWeight="600" color="#FFFFFF">
+                      Reactivate plan
+                    </Text>
                   </Button>
                 ) : null}
 
                 {isActive ? (
                   <Button
-                    size="$4"
-                    variant="outlined"
-                    borderColor="$red8"
-                    color="$red10"
+                    height={44}
+                    borderRadius={12}
+                    backgroundColor="transparent"
+                    borderWidth={1}
+                    borderColor={colors.accent.danger}
+                    paddingHorizontal={20}
                     onPress={handleCancel}
                     disabled={loading}
                     opacity={loading ? 0.6 : 1}
                   >
-                    Cancel subscription
+                    <Text fontSize={15} fontWeight="600" color={colors.accent.danger}>
+                      Cancel subscription
+                    </Text>
                   </Button>
                 ) : null}
               </XStack>
             </YStack>
-          </View>
+          </AppCard>
         )}
 
         {error ? (
-          <View backgroundColor="$red3" borderRadius="$4" borderWidth={1} borderColor="$red7" padding="$3">
-            <Text fontSize="$3" color="$red11">
+          <AppCard accent="danger">
+            <Text fontSize={13} color={colors.accent.danger}>
               {error}
             </Text>
-          </View>
+          </AppCard>
         ) : null}
 
-        <YStack space="$3">
-          <Text fontSize="$6" fontWeight="700">
-            Compare plans
-          </Text>
-          <Text fontSize="$3" color="$color11">
-            Both plans include the full monitoring experience. Choose the billing style that suits you best.
-          </Text>
-        </YStack>
+        <AppSectionHeader
+          title="Compare plans"
+          subtitle="Both plans include the full monitoring experience. Choose the billing style that suits you best."
+        />
 
-        <YStack space="$3">
+        {/* Plan cards */}
+        <YStack space={12}>
           {(['monthly', 'yearly'] as const).map(plan => {
             const details = PLAN_COPY[plan];
             const isSelected = selectedPlan === plan;
             const isCurrentPlan = subscription?.plan === plan && !isFree;
 
             return (
-              <View
+              <AppCard
                 key={plan}
-                backgroundColor={isSelected ? '$blue2' : '$backgroundStrong'}
-                borderRadius="$5"
-                borderWidth={2}
-                borderColor={isSelected ? '$blue8' : '$borderColor'}
-                padding="$4"
+                accent={isSelected ? 'primary' : 'none'}
               >
-                <YStack space="$3">
+                <YStack space={12}>
                   <XStack alignItems="center" justifyContent="space-between">
-                    <YStack flex={1} marginRight="$3">
-                      <XStack alignItems="center" gap="$2" flexWrap="wrap">
-                        <Text fontSize="$6" fontWeight="800">
+                    <YStack flex={1} marginRight={12}>
+                      <XStack alignItems="center" gap={8} flexWrap="wrap">
+                        <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
                           {details.title}
                         </Text>
                         {details.badge ? (
-                          <View backgroundColor="$orange8" borderRadius="$10" paddingHorizontal="$3" paddingVertical="$1">
-                            <Text fontSize="$1" fontWeight="700" color="white">
-                              {details.badge}
-                            </Text>
-                          </View>
+                          <AppStatusBadge variant="warning" label={details.badge} />
                         ) : null}
                         {isCurrentPlan ? (
-                          <View backgroundColor="$green8" borderRadius="$10" paddingHorizontal="$3" paddingVertical="$1">
-                            <Text fontSize="$1" fontWeight="700" color="white">
-                              Current
-                            </Text>
-                          </View>
+                          <AppStatusBadge variant="success" label="Current" />
                         ) : null}
                       </XStack>
-
-                      <Text fontSize="$3" color="$color11" marginTop="$2">
+                      <Text fontSize={13} color={colors.text.secondary} marginTop={4}>
                         {details.description}
                       </Text>
                     </YStack>
-
                     <YStack alignItems="flex-end">
-                      <Text fontSize="$8" fontWeight="900" color="$blue10">
+                      <Text fontSize={32} fontWeight="900" color={colors.primary.base}>
                         {details.price}
                       </Text>
-                      <Text fontSize="$3" color="$color11">
+                      <Text fontSize={13} color={colors.text.secondary}>
                         {details.cadence}
                       </Text>
                     </YStack>
                   </XStack>
 
-                  <YStack space="$2">
+                  <YStack space={8}>
                     {details.highlights.map(item => (
-                      <XStack key={item} gap="$2" alignItems="center">
-                        <Text fontSize="$3" color="$blue10">
-                          •
+                      <XStack key={item} gap={8} alignItems="center">
+                        <Text fontSize={15} color={colors.primary.base} fontWeight="700">
+                          {'\u2713'}
                         </Text>
-                        <Text fontSize="$3" color="$color11">
+                        <Text fontSize={13} color={colors.text.secondary}>
                           {item}
                         </Text>
                       </XStack>
@@ -335,49 +320,56 @@ const SubscriptionScreen: React.FC = () => {
                   </YStack>
 
                   <Button
-                    size="$4"
-                    backgroundColor={isSelected ? '$blue9' : '$background'}
+                    height={48}
+                    borderRadius={12}
+                    backgroundColor={isSelected ? colors.primary.base : colors.bg.base}
                     borderWidth={1}
-                    borderColor={isSelected ? '$blue9' : '$borderColor'}
-                    color={isSelected ? 'white' : '$color12'}
+                    borderColor={isSelected ? colors.primary.base : colors.border}
                     onPress={() => setSelectedPlan(plan)}
                   >
-                    {isSelected ? 'Selected' : `Choose ${details.title}`}
+                    <Text
+                      fontSize={15}
+                      fontWeight="600"
+                      color={isSelected ? '#FFFFFF' : colors.text.primary}
+                    >
+                      {isSelected ? 'Selected' : `Choose ${details.title}`}
+                    </Text>
                   </Button>
                 </YStack>
-              </View>
+              </AppCard>
             );
           })}
         </YStack>
 
-        <View backgroundColor="$backgroundStrong" borderRadius="$5" padding="$4">
-          <YStack space="$3">
-            <Text fontSize="$5" fontWeight="700">
+        {/* Checkout CTA */}
+        <AppCard>
+          <YStack space={12}>
+            <Text fontSize={17} fontWeight="700" color={colors.text.primary}>
               Ready to continue?
             </Text>
-            <Text fontSize="$3" color="$color11">
+            <Text fontSize={13} color={colors.text.secondary}>
               You are choosing the {selectedPlanCopy.title.toLowerCase()} plan. Checkout opens securely in Stripe.
             </Text>
-
             <Button
-              size="$5"
-              backgroundColor="$blue9"
+              height={56}
+              borderRadius={14}
+              backgroundColor={colors.primary.base}
+              borderWidth={0}
               onPress={handleSubscribe}
               disabled={loading}
               opacity={loading ? 0.6 : 1}
             >
-              <Text fontSize="$4" fontWeight="800" color="white">
+              <Text fontSize={17} fontWeight="800" color="#FFFFFF">
                 {loading
                   ? 'Loading...'
-                  : `Continue with ${selectedPlanCopy.title} · ${selectedPlanCopy.price}${selectedPlanCopy.cadence}`}
+                  : `Continue with ${selectedPlanCopy.title} \u00B7 ${selectedPlanCopy.price}${selectedPlanCopy.cadence}`}
               </Text>
             </Button>
-
-            <Text fontSize="$2" color="$color11">
+            <Text fontSize={11} color={colors.text.tertiary} textAlign="center">
               Secure checkout. You can manage or cancel your subscription later.
             </Text>
           </YStack>
-        </View>
+        </AppCard>
       </YStack>
     </ScrollView>
   );

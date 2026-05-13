@@ -5,6 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../config/api';
 import { initPush } from '../../services/push';
+import { AppCard } from '../../components/AppCard';
+import { AppSectionHeader } from '../../components/AppSectionHeader';
+import { colors } from '../../theme/colors';
 
 const TEST_SETTINGS_KEY = '@homealone/test-settings';
 
@@ -12,8 +15,8 @@ const TestTab: React.FC = () => {
   const { token } = useAuth();
   const [logs, setLogs] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
-  const [intervalMinutes, setIntervalMinutes] = useState('0.1'); // ~6 seconds
-  const [countdownSeconds, setCountdownSeconds] = useState('10'); // 10 seconds
+  const [intervalMinutes, setIntervalMinutes] = useState('0.1');
+  const [countdownSeconds, setCountdownSeconds] = useState('10');
 
   const appendLog = (message: string) => {
     const line = `${new Date().toISOString()} - ${message}`;
@@ -48,7 +51,6 @@ const TestTab: React.FC = () => {
     }
   };
 
-  // Arm a short-interval check-in using the real scheduler + /users/settings.
   const handleArmShortCheckIn = async () => {
     if (!token) {
       appendLog('No auth token available; please log in first.');
@@ -66,8 +68,8 @@ const TestTab: React.FC = () => {
     setSending(true);
 
     try {
-      const intervalHours = intervalM / 60; // server expects hours
-      const countdownMinutes = countdownS / 60; // server field is minutes
+      const intervalHours = intervalM / 60;
+      const countdownMinutes = countdownS / 60;
 
       appendLog(
         `Saving short check-in settings: interval=${intervalM}m (${intervalHours}h), countdown=${countdownS}s (${countdownMinutes}m)`,
@@ -84,7 +86,6 @@ const TestTab: React.FC = () => {
         JSON.stringify({ checkInIntervalHours: intervalHours, emergencyCountdownMinutes: countdownMinutes }),
       );
 
-      // Test helper: clear emergency/pending state so a fresh short timer can arm reliably.
       try {
         await apiFetch('/users/check-in-status', {
           method: 'POST',
@@ -138,52 +139,63 @@ const TestTab: React.FC = () => {
   };
 
   return (
-    <ScrollView style={{ flex: 1 }}>
-      <YStack space="$4" padding="$4">
-        <Text fontSize="$7" fontWeight="700">
-          Test FCM + check-in flow
-        </Text>
-        <Text fontSize="$4" color="$color11">
-          Use this screen to (1) send a basic FCM test notification and (2) arm a very short
-          server-driven check-in interval so you can see the full "Are you okay?" flow quickly.
-          Very short intervals (for example 0.1 minute) are not valid for testing inactivity-based
-          postponing in background.
-        </Text>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+      <YStack space={16} padding={16}>
+        <AppSectionHeader
+          title="Test FCM + check-in flow"
+          subtitle="Use this screen to send a basic FCM test notification and arm a very short server-driven check-in interval so you can see the full flow quickly."
+        />
 
-        <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4">
-          <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+        <AppCard accent="primary">
+          <Text fontSize={17} fontWeight="600" color={colors.text.primary} marginBottom={12}>
             1. Send a basic test notification
           </Text>
-          <Button disabled={sending} onPress={handleSendTestNotification}>
-            {sending ? 'Sending…' : 'Send test notification'}
+          <Button
+            height={48}
+            borderRadius={12}
+            backgroundColor={colors.primary.base}
+            borderWidth={0}
+            disabled={sending}
+            opacity={sending ? 0.6 : 1}
+            onPress={handleSendTestNotification}
+          >
+            <Text fontSize={15} fontWeight="600" color="#FFFFFF">
+              {sending ? 'Sending\u2026' : 'Send test notification'}
+            </Text>
           </Button>
-        </View>
+        </AppCard>
 
-        <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$4">
-          <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+        <AppCard>
+          <Text fontSize={17} fontWeight="600" color={colors.text.primary} marginBottom={12}>
             2. Arm a short check-in interval
           </Text>
-          <Text fontSize="$3" color="$color11" marginBottom="$2">
+          <Text fontSize={13} color={colors.text.secondary} marginBottom={12}>
             Set a very small check-in interval and response window. The backend scheduler will create
-            a check-in session and send an FCM push. You should then see the in-app "Are you okay?"
-            modal with "I'm OK" / "I'm Not OK".
+            a check-in session and send an FCM push.
           </Text>
 
-          <YStack space="$2">
+          <YStack space={12}>
             <View>
-              <Text fontSize="$3" marginBottom="$1">
+              <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                 Check-in interval (minutes)
               </Text>
               <Input
                 value={intervalMinutes}
                 onChangeText={setIntervalMinutes}
                 keyboardType="numeric"
-                placeholder="e.g. 0.1 (≈ 6 seconds)"
+                placeholder="e.g. 0.1 (\u2248 6 seconds)"
+                height={48}
+                borderRadius={10}
+                fontSize={15}
+                borderWidth={1}
+                borderColor={colors.border}
+                paddingHorizontal={14}
+                backgroundColor={colors.bg.base}
               />
             </View>
 
             <View>
-              <Text fontSize="$3" marginBottom="$1">
+              <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                 Response window (seconds)
               </Text>
               <Input
@@ -191,36 +203,54 @@ const TestTab: React.FC = () => {
                 onChangeText={setCountdownSeconds}
                 keyboardType="numeric"
                 placeholder="e.g. 10"
+                height={48}
+                borderRadius={10}
+                fontSize={15}
+                borderWidth={1}
+                borderColor={colors.border}
+                paddingHorizontal={14}
+                backgroundColor={colors.bg.base}
               />
             </View>
 
-            <Button marginTop="$2" disabled={sending} onPress={handleArmShortCheckIn}>
-              {sending ? 'Saving…' : 'Save & arm short check-in'}
+            <Button
+              height={48}
+              borderRadius={12}
+              backgroundColor={colors.primary.base}
+              borderWidth={0}
+              marginTop={4}
+              disabled={sending}
+              opacity={sending ? 0.6 : 1}
+              onPress={handleArmShortCheckIn}
+            >
+              <Text fontSize={15} fontWeight="600" color="#FFFFFF">
+                {sending ? 'Saving\u2026' : 'Save & arm short check-in'}
+              </Text>
             </Button>
           </YStack>
-        </View>
+        </AppCard>
 
-        <View backgroundColor="$backgroundStrong" borderRadius="$4" padding="$4" marginTop="$2">
-          <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+        <AppCard>
+          <Text fontSize={17} fontWeight="600" color={colors.text.primary} marginBottom={12}>
             Logs
           </Text>
           {logs.length === 0 ? (
-            <Text fontSize="$3" color="$color11">
+            <Text fontSize={13} color={colors.text.tertiary}>
               No logs yet. Press the button above to send a test notification.
             </Text>
           ) : (
-            <YStack space="$1">
+            <YStack space={6}>
               {logs
                 .slice()
                 .reverse()
                 .map(line => (
-                  <Text key={line} fontSize="$2" color="$color11">
+                  <Text key={line} fontSize={11} color={colors.text.tertiary} fontFamily="monospace">
                     {line}
                   </Text>
                 ))}
             </YStack>
           )}
-        </View>
+        </AppCard>
       </YStack>
     </ScrollView>
   );

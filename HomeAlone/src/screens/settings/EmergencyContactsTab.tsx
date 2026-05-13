@@ -4,7 +4,12 @@ import { View, Text, Input, Button, YStack, XStack } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../config/api';
-import { COUNTRY_CODES } from '../../assets/countryCodes'
+import { COUNTRY_CODES } from '../../assets/countryCodes';
+import { AppCard } from '../../components/AppCard';
+import { AppEmptyState } from '../../components/AppEmptyState';
+import { AppStatusBadge } from '../../components/AppStatusBadge';
+import { AppSectionHeader } from '../../components/AppSectionHeader';
+import { colors } from '../../theme/colors';
 
 const EMERGENCY_CONTACTS_KEY = '@homealone/emergency-contacts';
 
@@ -15,9 +20,8 @@ export type EmergencyContact = {
   phone: string;
   email?: string;
   relationship?: string;
-  priority: number; // 1-3
+  priority: number;
 };
-
 
 const EmergencyContactsTab: React.FC = () => {
   const { token } = useAuth();
@@ -105,10 +109,8 @@ const EmergencyContactsTab: React.FC = () => {
   };
 
   const updateFormField = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => {
-    console.log('[EmergencyContactsTab] updateFormField:', key, '=', value);
     setForm(prev => {
       const newForm = { ...prev, [key]: value };
-      console.log('[EmergencyContactsTab] New form state:', JSON.stringify(newForm, null, 2));
       return newForm;
     });
   };
@@ -131,9 +133,6 @@ const EmergencyContactsTab: React.FC = () => {
     setSaving(true);
     setError(null);
 
-    console.log('[EmergencyContactsTab] Saving contact with form:', JSON.stringify(form, null, 2));
-    console.log('[EmergencyContactsTab] countryCode being sent:', form.countryCode);
-
     try {
       const payload = {
         name: form.name.trim(),
@@ -143,7 +142,6 @@ const EmergencyContactsTab: React.FC = () => {
         relationship: form.relationship.trim() || undefined,
         priority: form.priority,
       };
-      console.log('[EmergencyContactsTab] API payload:', JSON.stringify(payload, null, 2));
 
       if (editingId) {
         await apiFetch<EmergencyContact>(`/friends/${editingId}`, {
@@ -179,81 +177,111 @@ const EmergencyContactsTab: React.FC = () => {
   };
 
   return (
-    <ScrollView style={{ flex: 1 }}>
-      <YStack space="$4" padding="$4">
-        <Text fontSize="$7" fontWeight="700">
-          Emergency contacts
-        </Text>
-        <Text fontSize="$4" color="$color11">
-          Add up to three trusted people who will be contacted if an emergency is detected.
-        </Text>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
+      <YStack space={16} padding={16}>
+        <AppSectionHeader
+          title="Emergency contacts"
+          subtitle="Add up to three trusted people who will be contacted if an emergency is detected."
+        />
+
+        {/* Contact limit indicator */}
+        <XStack alignItems="center" justifyContent="space-between">
+          <Text fontSize={13} color={colors.text.tertiary}>
+            {contacts.length} of 3 contacts used
+          </Text>
+          <XStack space={6} alignItems="center">
+            {[1, 2, 3].map(i => (
+              <View
+                key={i}
+                width={8}
+                height={8}
+                borderRadius={4}
+                backgroundColor={i <= contacts.length ? colors.primary.base : colors.border}
+              />
+            ))}
+          </XStack>
+        </XStack>
 
         {loading ? (
-          <Text marginTop="$4">Loading contacts...</Text>
+          <Text fontSize={15} color={colors.text.secondary} textAlign="center" marginTop={16}>
+            Loading contacts...
+          </Text>
         ) : (
           <>
-            {/* Existing contacts as full-width horizontal cards */}
-            <YStack space="$3" marginTop="$2">
+            {/* Existing contacts */}
+            <YStack space={12}>
               {contacts.length === 0 ? (
-                <Text color="$color11">No contacts yet. Add your first emergency contact below.</Text>
+                <AppEmptyState
+                  icon="\uD83D\uDC64"
+                  title="No contacts yet"
+                  subtitle="Add your first emergency contact below."
+                />
               ) : (
                 contacts.map(contact => (
-                  <View
-                    key={contact._id || contact.priority}
-                    backgroundColor="$backgroundStrong"
-                    borderRadius="$4"
-                    padding="$4"
-                  >
-                    <XStack justifyContent="space-between" alignItems="center">
-                      <YStack space="$1" flex={1}>
-                        <Text fontSize="$5" fontWeight="600">
+                  <AppCard key={contact._id || contact.priority} accent="info">
+                    <XStack alignItems="center" space={12}>
+                      <View
+                        width={44}
+                        height={44}
+                        borderRadius={22}
+                        backgroundColor={colors.primary.light}
+                        justifyContent="center"
+                        alignItems="center"
+                      >
+                        <Text fontSize={18} fontWeight="700" color={colors.primary.base}>
+                          {contact.name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <YStack flex={1} space={2}>
+                        <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
                           {contact.name}
                         </Text>
-                        <Text fontSize="$3" color="$color11">
+                        <Text fontSize={13} color={colors.text.secondary}>
                           {contact.countryCode || ''} {contact.phone}
                         </Text>
                         {contact.email ? (
-                          <Text fontSize="$3" color="$color11">
+                          <Text fontSize={13} color={colors.text.secondary}>
                             {contact.email}
                           </Text>
                         ) : null}
                         {contact.relationship ? (
-                          <Text fontSize="$3" color="$color11">
+                          <Text fontSize={13} color={colors.text.secondary}>
                             {contact.relationship}
                           </Text>
                         ) : null}
-                        <Text fontSize="$3" color="$color11">
-                          Priority {contact.priority}
-                        </Text>
+                        <XStack marginTop={2}>
+                          <AppStatusBadge variant="info" label={`Priority ${contact.priority}`} />
+                        </XStack>
                       </YStack>
-
                       <Button
-                        size="$3"
-                        variant="outlined"
+                        size="$2"
+                        height={40}
+                        borderRadius={10}
+                        backgroundColor="transparent"
+                        borderWidth={1}
+                        borderColor={colors.border}
+                        paddingHorizontal={16}
                         onPress={() => startEditContact(contact)}
                       >
-                        Edit
+                        <Text fontSize={13} fontWeight="600" color={colors.primary.base}>
+                          Edit
+                        </Text>
                       </Button>
                     </XStack>
-                  </View>
+                  </AppCard>
                 ))
               )}
             </YStack>
 
-            {/* Single contact form */}
-            <View
-              backgroundColor="$backgroundStrong"
-              borderRadius="$4"
-              padding="$4"
-              marginTop="$4"
-            >
-              <Text fontSize="$5" fontWeight="600" marginBottom="$2">
+            {/* Add/Edit form */}
+            <AppCard>
+              <Text fontSize={17} fontWeight="600" color={colors.text.primary} marginBottom={12}>
                 {editingId ? 'Edit emergency contact' : 'Add emergency contact'}
               </Text>
 
-              <YStack space="$2">
+              <YStack space={12}>
                 <View>
-                  <Text fontSize="$3" marginBottom="$1">
+                  <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                     Name *
                   </Text>
                   <Input
@@ -261,25 +289,34 @@ const EmergencyContactsTab: React.FC = () => {
                     onChangeText={text => updateFormField('name', text)}
                     placeholder="Full name"
                     autoCapitalize="words"
+                    height={48}
+                    borderRadius={10}
+                    fontSize={15}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    paddingHorizontal={14}
+                    backgroundColor={colors.bg.base}
                   />
                 </View>
 
                 <View>
-                  <Text fontSize="$3" marginBottom="$1">
+                  <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                     Phone *
                   </Text>
-                  <XStack space="$2">
+                  <XStack space={8}>
                     <TouchableOpacity onPress={() => setShowCountryPicker(true)}>
                       <View
-                        backgroundColor="$backgroundHover"
-                        padding="$3"
-                        borderRadius="$3"
+                        backgroundColor={colors.bg.base}
+                        padding={12}
+                        borderRadius={10}
                         borderWidth={1}
-                        borderColor="$borderColor"
+                        borderColor={colors.border}
                         minWidth={80}
+                        height={48}
+                        justifyContent="center"
                       >
-                        <Text fontSize="$4" textAlign="center">
-                          {COUNTRY_CODES.find(c => c.code === form.countryCode)?.flag || '🌍'}{' '}
+                        <Text fontSize={15} textAlign="center">
+                          {COUNTRY_CODES.find(c => c.code === form.countryCode)?.flag || '\uD83C\uDF0D'}{' '}
                           {form.countryCode}
                         </Text>
                       </View>
@@ -290,73 +327,123 @@ const EmergencyContactsTab: React.FC = () => {
                       onChangeText={text => updateFormField('phone', text)}
                       placeholder="Phone number"
                       keyboardType="phone-pad"
+                      height={48}
+                      borderRadius={10}
+                      fontSize={15}
+                      borderWidth={1}
+                      borderColor={colors.border}
+                      paddingHorizontal={14}
+                      backgroundColor={colors.bg.base}
                     />
                   </XStack>
                 </View>
 
                 <View>
-                  <Text fontSize="$3" marginBottom="$1">
+                  <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                     Email (optional)
                   </Text>
                   <Input
                     value={form.email}
                     onChangeText={text => updateFormField('email', text)}
-                    placeholder="Email"
+                    placeholder="Email address"
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    height={48}
+                    borderRadius={10}
+                    fontSize={15}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    paddingHorizontal={14}
+                    backgroundColor={colors.bg.base}
                   />
                 </View>
 
                 <View>
-                  <Text fontSize="$3" marginBottom="$1">
+                  <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                     Relationship (optional)
                   </Text>
                   <Input
                     value={form.relationship}
                     onChangeText={text => updateFormField('relationship', text)}
                     placeholder="e.g. Family, friend, neighbour"
+                    height={48}
+                    borderRadius={10}
+                    fontSize={15}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    paddingHorizontal={14}
+                    backgroundColor={colors.bg.base}
                   />
                 </View>
 
                 <View>
-                  <Text fontSize="$3" marginBottom="$1">
+                  <Text fontSize={13} color={colors.text.secondary} marginBottom={4}>
                     Priority (1 = first to contact)
                   </Text>
-                  <XStack space="$2">
+                  <XStack space={8}>
                     {[1, 2, 3].map(p => (
                       <Button
                         key={p}
-                        size="$2"
-                        variant={form.priority === p ? 'solid' : 'outlined'}
+                        flex={1}
+                        height={44}
+                        borderRadius={10}
+                        backgroundColor={form.priority === p ? colors.primary.base : colors.bg.base}
+                        borderWidth={1}
+                        borderColor={form.priority === p ? colors.primary.base : colors.border}
                         onPress={() => updateFormField('priority', p)}
                       >
-                        <Text color="$color12">{p}</Text>
+                        <Text
+                          fontSize={17}
+                          fontWeight="600"
+                          color={form.priority === p ? '#FFFFFF' : colors.text.primary}
+                        >
+                          {p}
+                        </Text>
                       </Button>
                     ))}
                   </XStack>
                 </View>
 
                 {error ? (
-                  <Text color="red" marginTop="$2">
-                    {error}
-                  </Text>
+                  <View backgroundColor="#F5EDE0" borderRadius={10} padding={12} borderWidth={1} borderColor="#E8DCC8">
+                    <Text fontSize={13} color={colors.accent.warning}>
+                      {error}
+                    </Text>
+                  </View>
                 ) : null}
 
-                <XStack marginTop="$3" justifyContent="space-between">
+                <XStack marginTop={8} space={12}>
                   <Button
-                    size="$3"
-                    variant="outlined"
+                    flex={1}
+                    height={48}
+                    borderRadius={12}
+                    backgroundColor="transparent"
+                    borderWidth={1}
+                    borderColor={colors.border}
                     disabled={saving}
                     onPress={startNewContact}
                   >
-                    New
+                    <Text fontSize={15} fontWeight="600" color={colors.text.primary}>
+                      New
+                    </Text>
                   </Button>
-                  <Button size="$3" onPress={handleSave} disabled={saving}>
-                    {saving ? 'Saving…' : 'Save'}
+                  <Button
+                    flex={1}
+                    height={48}
+                    borderRadius={12}
+                    backgroundColor={colors.primary.base}
+                    borderWidth={0}
+                    onPress={handleSave}
+                    disabled={saving}
+                    opacity={saving ? 0.6 : 1}
+                  >
+                    <Text fontSize={15} fontWeight="600" color="#FFFFFF">
+                      {saving ? 'Saving\u2026' : 'Save'}
+                    </Text>
                   </Button>
                 </XStack>
               </YStack>
-            </View>
+            </AppCard>
           </>
         )}
       </YStack>
@@ -371,22 +458,29 @@ const EmergencyContactsTab: React.FC = () => {
           setCountrySearchQuery('');
         }}
       >
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
-          <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
-            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
-              <XStack justifyContent="space-between" alignItems="center" marginBottom="$3">
-                <Text fontSize="$6" fontWeight="600">
+        <View style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: colors.bg.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '70%' }}>
+            <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: colors.divider }}>
+              <XStack justifyContent="space-between" alignItems="center" marginBottom={12}>
+                <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
                   Select Country Code
                 </Text>
                 <Button
-                  size="$3"
-                  variant="outlined"
+                  size="$2"
+                  height={36}
+                  borderRadius={10}
+                  backgroundColor="transparent"
+                  borderWidth={1}
+                  borderColor={colors.border}
+                  paddingHorizontal={14}
                   onPress={() => {
                     setShowCountryPicker(false);
                     setCountrySearchQuery('');
                   }}
                 >
-                  Close
+                  <Text fontSize={13} fontWeight="600" color={colors.text.secondary}>
+                    Close
+                  </Text>
                 </Button>
               </XStack>
               <Input
@@ -395,6 +489,13 @@ const EmergencyContactsTab: React.FC = () => {
                 onChangeText={setCountrySearchQuery}
                 autoCapitalize="none"
                 autoCorrect={false}
+                height={44}
+                borderRadius={10}
+                fontSize={15}
+                borderWidth={1}
+                borderColor={colors.border}
+                paddingHorizontal={14}
+                backgroundColor={colors.bg.base}
               />
             </View>
             <FlatList
@@ -410,23 +511,23 @@ const EmergencyContactsTab: React.FC = () => {
                   style={{
                     padding: 16,
                     borderBottomWidth: 1,
-                    borderBottomColor: '#f0f0f0',
-                    backgroundColor: form.countryCode === item.code ? '#e3f2fd' : 'white',
+                    borderBottomColor: colors.divider,
+                    backgroundColor: form.countryCode === item.code ? colors.primary.light : 'transparent',
                   }}
                 >
-                  <XStack space="$3" alignItems="center">
-                    <Text fontSize="$6">{item.flag}</Text>
+                  <XStack space={12} alignItems="center">
+                    <Text fontSize={20}>{item.flag}</Text>
                     <View flex={1}>
-                      <Text fontSize="$4" fontWeight="500">
+                      <Text fontSize={15} fontWeight="500" color={colors.text.primary}>
                         {item.name}
                       </Text>
-                      <Text fontSize="$3" color="$color11">
+                      <Text fontSize={13} color={colors.text.secondary}>
                         {item.code}
                       </Text>
                     </View>
                     {form.countryCode === item.code && (
-                      <Text fontSize="$5" color="$blue9">
-                        ✓
+                      <Text fontSize={17} color={colors.primary.base} fontWeight="700">
+                        {'\u2713'}
                       </Text>
                     )}
                   </XStack>

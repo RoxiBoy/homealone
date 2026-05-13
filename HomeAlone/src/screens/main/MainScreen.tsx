@@ -1,7 +1,8 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Dimensions, Animated, Easing, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, TouchableOpacity } from 'react-native';
 import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { useAuth } from '../../contexts/AuthContext';
+import { colors } from '../../theme/colors';
 import DashboardTab from '../dashboard/DashboardTab';
 import TipsTab from '../tips/TipsTab';
 import ProductsTab from '../products/ProductsTab';
@@ -23,27 +24,25 @@ type MainTabKey =
   | 'emergency'
   | 'test';
 
+const PRIMARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
+  { key: 'dashboard', label: 'Dashboard', icon: '\u2302' },
+  { key: 'tips', label: 'Tips', icon: '\u2605' },
+  { key: 'settings', label: 'Settings', icon: '\u2699' },
+  { key: 'emergency', label: 'Emergency', icon: '\uD83D\uDEE1' },
+  { key: 'test', label: 'Test', icon: '\uD83C\uDFAF' },
+];
+
+const SECONDARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
+  { key: 'products', label: 'Products', icon: '\uD83D\uDCC5' },
+  { key: 'services', label: 'Services', icon: '\u2764' },
+  { key: 'reminders', label: 'Reminders', icon: '\u23F0' },
+  { key: 'subscription', label: 'Subscription', icon: '\uD83D\uDEE1' },
+];
+
 const MainScreen: React.FC = () => {
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState<MainTabKey>('dashboard');
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const drawerWidth = useMemo(
-    () => Dimensions.get('window').width * 0.7,
-    [],
-  );
-  const slideAnim = useRef(new Animated.Value(0)).current; // 0 = closed, 1 = open
-
-  const toggleMenu = () => {
-    const nextOpen = !menuOpen;
-    setMenuOpen(nextOpen);
-    Animated.timing(slideAnim, {
-      toValue: nextOpen ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  };
+  const [showMore, setShowMore] = useState(false);
 
   const renderActiveTab = () => {
     switch (activeTab) {
@@ -70,41 +69,37 @@ const MainScreen: React.FC = () => {
     }
   };
 
-  const drawerTranslateX = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-drawerWidth, 0],
-  });
-
-  const renderHamburger = () => (
-    <XStack>
-      <YStack space={2}>
-        <View height={2} width={16} backgroundColor="$color12" borderRadius={9999} />
-        <View height={2} width={16} backgroundColor="$color12" borderRadius={9999} />
-        <View height={2} width={16} backgroundColor="$color12" borderRadius={9999} />
-      </YStack>
-    </XStack>
-  );
-
   const handleSelectTab = (key: MainTabKey) => {
     setActiveTab(key);
-    toggleMenu();
+    setShowMore(false);
   };
 
   return (
-    <View flex={1} backgroundColor="$background">
-      {/* Top navigation bar */}
-      <YStack paddingTop="$4" paddingHorizontal="$4" paddingBottom="$2" backgroundColor="$backgroundStrong">
+    <View flex={1} backgroundColor={colors.bg.base}>
+      {/* Minimal header */}
+      <YStack
+        paddingTop={8}
+        paddingHorizontal={16}
+        paddingBottom={8}
+        backgroundColor={colors.bg.card}
+        borderBottomWidth={1}
+        borderBottomColor={colors.divider}
+      >
         <XStack alignItems="center" justifyContent="space-between">
-          <TouchableOpacity onPress={toggleMenu}>
-            {renderHamburger()}
-          </TouchableOpacity>
-
-          <Text fontSize="$7" fontWeight="700">
+          <Text fontSize={20} fontWeight="700" color={colors.primary.base}>
             HomeAlone
           </Text>
-
-          <Button size="$3" variant="outlined" onPress={logout}>
-            Log out
+          <Button
+            size="$2"
+            variant="outlined"
+            borderColor={colors.border}
+            onPress={logout}
+            height={36}
+            borderRadius={10}
+          >
+            <Text fontSize={13} fontWeight="600" color={colors.text.secondary}>
+              Log out
+            </Text>
           </Button>
         </XStack>
       </YStack>
@@ -112,124 +107,138 @@ const MainScreen: React.FC = () => {
       {/* Active tab content */}
       <View flex={1}>{renderActiveTab()}</View>
 
-      {/* Slide-in side menu */}
-      <Animated.View
-        pointerEvents={menuOpen ? 'auto' : 'none'}
-        style={{
-          position: 'absolute',
-          top: 0,
-          bottom: 0,
-          left: 0,
-          right: 0,
-        }}
+      {/* Bottom tab bar */}
+      <XStack
+        backgroundColor={colors.bg.card}
+        borderTopWidth={1}
+        borderTopColor={colors.divider}
+        paddingBottom={8}
+        paddingTop={6}
+        paddingHorizontal={4}
+        justifyContent="space-around"
+        alignItems="center"
       >
-        {/* Semi-transparent overlay to close menu */}
+        {PRIMARY_TABS.map((tab) => {
+          const isActive = activeTab === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => handleSelectTab(tab.key)}
+              activeOpacity={0.7}
+              style={{
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                minWidth: 60,
+              }}
+            >
+              <Text
+                fontSize={isActive ? 20 : 18}
+                color={isActive ? colors.primary.base : colors.text.tertiary}
+              >
+                {tab.icon}
+              </Text>
+              <Text
+                fontSize={11}
+                fontWeight={isActive ? '700' : '400'}
+                color={isActive ? colors.primary.base : colors.text.tertiary}
+                marginTop={2}
+              >
+                {tab.label}
+              </Text>
+              {isActive && (
+                <View
+                  position="absolute"
+                  top={-6}
+                  width={20}
+                  height={3}
+                  backgroundColor={colors.primary.base}
+                  borderRadius={2}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        })}
         <TouchableOpacity
-          style={{ flex: 1 }}
-          activeOpacity={1}
-          onPress={() => menuOpen && toggleMenu()}
-        >
-          <View style={{ flex: 1 }} />
-        </TouchableOpacity>
-
-        <Animated.View
+          onPress={() => setShowMore(true)}
+          activeOpacity={0.7}
           style={{
-            position: 'absolute',
-            top: 0,
-            bottom: 0,
-            left: 0,
-            width: drawerWidth,
-            transform: [{ translateX: drawerTranslateX }],
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 8,
+            paddingVertical: 4,
+            minWidth: 60,
           }}
         >
-          <YStack
-            flex={1}
-            padding="$4"
-            space="$3"
-            backgroundColor="#000"
-            borderRightWidth={1}
-            borderColor="$borderColor"
+          <Text
+            fontSize={18}
+            color={showMore ? colors.primary.base : colors.text.tertiary}
           >
-            <Text fontSize="$6" fontWeight="700" marginBottom="$2">
-              Menu
-            </Text>
+            {'\u2022\u2022\u2022'}
+          </Text>
+          <Text
+            fontSize={11}
+            fontWeight={showMore ? '700' : '400'}
+            color={showMore ? colors.primary.base : colors.text.tertiary}
+            marginTop={2}
+          >
+            More
+          </Text>
+        </TouchableOpacity>
+      </XStack>
 
-            <Button
-              size="$4"
-              variant={activeTab === 'dashboard' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('dashboard')}
+      {/* More modal */}
+      <Modal
+        visible={showMore}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowMore(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' }}
+          activeOpacity={1}
+          onPress={() => setShowMore(false)}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <View
+              backgroundColor={colors.bg.card}
+              borderRadius={20}
+              padding={20}
+              width="80%"
+              maxWidth={320}
             >
-              Dashboard
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'tips' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('tips')}
-            >
-              Tips
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'products' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('products')}
-            >
-              Products
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'services' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('services')}
-            >
-              Services
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'reminders' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('reminders')}
-            >
-              Reminders
-            </Button>
-
-            <View height={1} backgroundColor="$borderColor" opacity={0.4} marginVertical="$2" />
-
-            <Button
-              size="$4"
-              variant={activeTab === 'subscription' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('subscription')}
-            >
-              Subscription
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'settings' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('settings')}
-            >
-              Settings
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'emergency' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('emergency')}
-            >
-              Emergency contacts
-            </Button>
-
-            <Button
-              size="$4"
-              variant={activeTab === 'test' ? 'solid' : 'outlined'}
-              onPress={() => handleSelectTab('test')}
-            >
-              Test
-            </Button>
-          </YStack>
-        </Animated.View>
-      </Animated.View>
+              <Text fontSize={19} fontWeight="700" color={colors.text.primary} textAlign="center" marginBottom={16}>
+                More
+              </Text>
+              <YStack space={8}>
+                {SECONDARY_TABS.map((tab) => (
+                  <TouchableOpacity
+                    key={tab.key}
+                    onPress={() => handleSelectTab(tab.key)}
+                    activeOpacity={0.7}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      paddingVertical: 12,
+                      paddingHorizontal: 16,
+                      backgroundColor: activeTab === tab.key ? colors.primary.light : 'transparent',
+                      borderRadius: 12,
+                    }}
+                  >
+                    <Text fontSize={18} marginRight={12}>
+                      {tab.icon}
+                    </Text>
+                    <Text fontSize={17} fontWeight="500" color={colors.text.primary}>
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </YStack>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
