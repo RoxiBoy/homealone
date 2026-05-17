@@ -12,6 +12,10 @@ router.get('/profile', userController.getProfile);
 // Dashboard overview
 router.get('/dashboard', userController.getDashboard);
 
+// Referral
+router.get('/referral', userController.getReferralStatus);
+router.post('/referral/apply', userController.applyReferralCode);
+
 // Update user profile
 router.put('/profile', userController.updateProfile);
 

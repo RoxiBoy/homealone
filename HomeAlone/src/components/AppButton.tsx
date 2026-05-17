@@ -15,7 +15,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
   ...props
 }) => {
   const height = size === 'lg' ? 56 : 48;
-  const fontSizeVal = size === 'lg' ? 17 : 15;
+  const fontSizeVal = size === 'lg' ? 19 : 17;
 
   const getStyle = () => {
     switch (variant) {
@@ -51,7 +51,7 @@ export const AppButton: React.FC<AppButtonProps> = ({
     >
       <Text
         fontSize={fontSizeVal}
-        fontWeight="600"
+        fontWeight="800"
         color={
           variant === 'primary'
             ? '#FFFFFF'

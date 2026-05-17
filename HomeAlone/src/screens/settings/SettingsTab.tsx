@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView } from 'react-native';
-import { View, Text, Button, YStack, XStack } from 'tamagui';
+import { Alert, ScrollView, Share } from 'react-native';
+import { Text, Button, YStack, XStack, Input } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiFetch } from '../../config/api';
@@ -30,11 +30,24 @@ type ActivitySettings = {
   dndReason: DndReason;
 };
 
+type ReferralInfo = {
+  code: string | null;
+  shareLink: string | null;
+  referredBy: string | null;
+  stats: {
+    signups: number;
+    conversions: number;
+    rewardCents: number;
+    rewardDollars: number;
+  };
+  rewardGrantedAt: string | null;
+};
+
 const getDeviceTimezone = () => {
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     return timezone || 'UTC';
-  } catch (error) {
+  } catch {
     return 'UTC';
   }
 };
@@ -107,6 +120,8 @@ const formatters = {
   hour: (h: number) => formatHourLabel(h),
 };
 
+const formatMoney = (cents: number) => `$${(Number(cents || 0) / 100).toFixed(0)}`;
+
 const SettingsTab: React.FC = () => {
   const { token, notificationsEnabled, user, updateUser } = useAuth();
   const [settings, setSettings] = useState<ActivitySettings>({
@@ -120,6 +135,10 @@ const SettingsTab: React.FC = () => {
     dndReason: user?.dndReason ?? DEFAULT_SETTINGS.dndReason,
   });
   const [loading, setLoading] = useState(true);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [referralApplying, setReferralApplying] = useState(false);
+  const [referralCodeInput, setReferralCodeInput] = useState('');
+  const [referralInfo, setReferralInfo] = useState<ReferralInfo | null>(null);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -170,6 +189,28 @@ const SettingsTab: React.FC = () => {
 
     loadSettings();
   }, [token]);
+
+  useEffect(() => {
+    const loadReferralStatus = async () => {
+      if (!token) return;
+
+      try {
+        setReferralLoading(true);
+        const response = await apiFetch<{ referral: ReferralInfo }>('/users/referral', {
+          method: 'GET',
+          token,
+        });
+        setReferralInfo(response.referral);
+        await updateUser({ referral: response.referral });
+      } catch (error) {
+        console.warn('[SettingsTab] Failed to load referral status', error);
+      } finally {
+        setReferralLoading(false);
+      }
+    };
+
+    loadReferralStatus();
+  }, [token, updateUser]);
 
   const dndStatusText = useMemo(() => {
     if (!settings.effectiveDnd) {
@@ -256,12 +297,63 @@ const SettingsTab: React.FC = () => {
     });
   };
 
+  const shareReferralCode = async () => {
+    if (!referralInfo?.code) {
+      return;
+    }
+
+    const shareMessage = referralInfo.shareLink
+      ? `Join me on HomeAlone and use my referral code ${referralInfo.code}. ${referralInfo.shareLink}`
+      : `Join me on HomeAlone and use my referral code ${referralInfo.code}.`;
+
+    try {
+      await Share.share({
+        message: shareMessage,
+      });
+    } catch (error) {
+      console.warn('[SettingsTab] Failed to share referral code', error);
+    }
+  };
+
+  const applyReferralCode = async () => {
+    const normalizedCode = referralCodeInput.trim().toUpperCase();
+    if (!normalizedCode) {
+      Alert.alert('Referral code required', 'Enter a referral code to apply it.');
+      return;
+    }
+
+    if (!token) {
+      Alert.alert('Sign in required', 'Please sign in to apply a referral code.');
+      return;
+    }
+
+    try {
+      setReferralApplying(true);
+      const response = await apiFetch<{ referral: ReferralInfo; message: string }>(
+        '/users/referral/apply',
+        {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ code: normalizedCode }),
+        },
+      );
+      setReferralInfo(response.referral);
+      await updateUser({ referral: response.referral });
+      setReferralCodeInput('');
+      Alert.alert('Referral applied', response.message || 'Referral code applied successfully.');
+    } catch (error: any) {
+      Alert.alert('Could not apply referral code', error?.message || 'Please try again.');
+    } finally {
+      setReferralApplying(false);
+    }
+  };
+
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
       <YStack padding={16} space={16}>
         <AppSectionHeader
           title="Settings"
-          subtitle="Customize your safety check-in preferences."
+          subtitle="Large, simple controls for your safety preferences."
         />
 
         {notificationsEnabled === false && (
@@ -291,7 +383,7 @@ const SettingsTab: React.FC = () => {
               <Text fontSize={19} fontWeight="600" color={colors.text.primary}>
                 Do Not Disturb
               </Text>
-              <Text fontSize={13} color={colors.text.secondary} marginTop={2}>
+              <Text fontSize={16} color={colors.text.secondary} marginTop={2}>
                 Temporarily silence all check-in alerts.
               </Text>
             </YStack>
@@ -302,7 +394,7 @@ const SettingsTab: React.FC = () => {
               }
             />
           </XStack>
-          <Text fontSize={13} color={colors.text.tertiary} marginTop={8}>
+          <Text fontSize={15} color={colors.text.tertiary} marginTop={8}>
             {dndStatusText}
           </Text>
         </AppCard>
@@ -319,7 +411,7 @@ const SettingsTab: React.FC = () => {
               subtitle="How long after your last activity we should wait before checking in on you."
             />
             <AppCard accent="primary">
-              <Text fontSize={26} fontWeight="700" color={colors.primary.base} textAlign="center" marginBottom={8}>
+              <Text fontSize={30} fontWeight="900" color={colors.primary.dark} textAlign="center" marginBottom={8}>
                 {formatters.interval(settings.checkInTime)}
               </Text>
               <TimerWheel
@@ -336,7 +428,7 @@ const SettingsTab: React.FC = () => {
               subtitle="How long to wait for your response after a check-in before triggering emergency contacts."
             />
             <AppCard accent="warning">
-              <Text fontSize={26} fontWeight="700" color={colors.accent.warning} textAlign="center" marginBottom={8}>
+              <Text fontSize={30} fontWeight="900" color={colors.secondary.dark} textAlign="center" marginBottom={8}>
                 {formatters.countdown(settings.countdownTime)}
               </Text>
               <TimerWheel
@@ -415,6 +507,105 @@ const SettingsTab: React.FC = () => {
                   />
                 </YStack>
               </XStack>
+            </AppCard>
+
+            {/* Referral */}
+            <AppSectionHeader
+              title="Referral program"
+              subtitle="Invite trusted friends and track your referral rewards."
+            />
+            <AppCard accent="info">
+              <YStack space={12}>
+                <YStack space={4}>
+                  <Text fontSize={13} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
+                    Your referral code
+                  </Text>
+                  <Text fontSize={24} fontWeight="800" color={colors.primary.base}>
+                    {referralLoading ? 'Loading…' : referralInfo?.code || 'Unavailable'}
+                  </Text>
+                  <Text fontSize={13} color={colors.text.secondary}>
+                    Earn $10 credit for each successful paid referral.
+                  </Text>
+                </YStack>
+
+                <XStack space={12}>
+                  <YStack flex={1}>
+                    <Text fontSize={12} color={colors.text.tertiary}>
+                      Signups
+                    </Text>
+                    <Text fontSize={20} fontWeight="700" color={colors.text.primary}>
+                      {referralInfo?.stats.signups || 0}
+                    </Text>
+                  </YStack>
+                  <YStack flex={1}>
+                    <Text fontSize={12} color={colors.text.tertiary}>
+                      Conversions
+                    </Text>
+                    <Text fontSize={20} fontWeight="700" color={colors.text.primary}>
+                      {referralInfo?.stats.conversions || 0}
+                    </Text>
+                  </YStack>
+                  <YStack flex={1}>
+                    <Text fontSize={12} color={colors.text.tertiary}>
+                      Credits
+                    </Text>
+                    <Text fontSize={20} fontWeight="700" color={colors.secondary.dark}>
+                      {formatMoney(referralInfo?.stats.rewardCents || 0)}
+                    </Text>
+                  </YStack>
+                </XStack>
+
+                <Button
+                  height={46}
+                  borderRadius={12}
+                  backgroundColor={colors.primary.base}
+                  borderWidth={0}
+                  onPress={shareReferralCode}
+                  disabled={!referralInfo?.code}
+                  opacity={!referralInfo?.code ? 0.5 : 1}
+                >
+                  <Text fontSize={15} fontWeight="600" color="#FFFFFF">
+                    Share referral code
+                  </Text>
+                </Button>
+
+                {referralInfo?.referredBy ? (
+                  <Text fontSize={13} color={colors.text.secondary}>
+                    A referral code has already been applied to this account.
+                  </Text>
+                ) : (
+                  <YStack space={8}>
+                    <Input
+                      placeholder="Apply a referral code"
+                      value={referralCodeInput}
+                      onChangeText={(text) => setReferralCodeInput(text.toUpperCase())}
+                      autoCapitalize="characters"
+                      autoCorrect={false}
+                      height={48}
+                      borderRadius={12}
+                      fontSize={16}
+                      borderWidth={1}
+                      borderColor={colors.border}
+                      paddingHorizontal={14}
+                      backgroundColor={colors.bg.card}
+                    />
+                    <Button
+                      height={44}
+                      borderRadius={12}
+                      backgroundColor="transparent"
+                      borderWidth={1}
+                      borderColor={colors.border}
+                      onPress={applyReferralCode}
+                      disabled={referralApplying}
+                      opacity={referralApplying ? 0.6 : 1}
+                    >
+                      <Text fontSize={14} fontWeight="600" color={colors.text.primary}>
+                        {referralApplying ? 'Applying…' : 'Apply code'}
+                      </Text>
+                    </Button>
+                  </YStack>
+                )}
+              </YStack>
             </AppCard>
 
             {/* How it works */}

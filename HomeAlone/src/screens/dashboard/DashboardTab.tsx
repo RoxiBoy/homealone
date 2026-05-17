@@ -1,61 +1,46 @@
 import React from 'react';
 import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
-import { Button, Separator, Text, View, XStack, YStack } from 'tamagui';
+import { Button, Text, View, XStack, YStack } from 'tamagui';
 import { useDashboard } from '../../contexts/DashboardContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { AppCard } from '../../components/AppCard';
 import { AppStatusBadge } from '../../components/AppStatusBadge';
 import { colors } from '../../theme/colors';
 
-function formatInterval(hours: number) {
-  if (hours === 1) {
-    return '1 hour';
-  }
-
-  return `${hours} hours`;
-}
-
-function formatMinutes(minutes: number) {
-  if (minutes === 1) {
-    return '1 minute';
-  }
-
-  return `${minutes} minutes`;
+function plural(value: number, unit: string) {
+  return `${value} ${unit}${value === 1 ? '' : 's'}`;
 }
 
 function formatHour(hour: number) {
-  const safeHour = Number.isInteger(hour) ? hour : 0;
-  const normalizedHour = ((safeHour % 24) + 24) % 24;
-  const period = normalizedHour >= 12 ? 'PM' : 'AM';
-  const displayHour = normalizedHour % 12 || 12;
+  const normalized = ((Number.isInteger(hour) ? hour : 0) % 24 + 24) % 24;
+  const period = normalized >= 12 ? 'PM' : 'AM';
+  const displayHour = normalized % 12 || 12;
   return `${displayHour}:00 ${period}`;
 }
 
 function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return 'No data yet';
-  }
+  if (!value) return 'No history yet';
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return 'No data yet';
-  }
+  if (Number.isNaN(date.getTime())) return 'No history yet';
 
-  return `${date.toLocaleDateString()} ${date.toLocaleTimeString([], {
+  return `${date.toLocaleDateString()} at ${date.toLocaleTimeString([], {
     hour: 'numeric',
     minute: '2-digit',
   })}`;
 }
 
+function formatMoney(cents: number) {
+  return `$${(Number(cents || 0) / 100).toFixed(0)}`;
+}
+
 const DashboardTab: React.FC = () => {
-  const { user } = useAuth();
   const { dashboard, loading, refreshing, error, refreshDashboard } = useDashboard();
 
   if (loading && !dashboard) {
     return (
-      <YStack flex={1} padding="$4" justifyContent="center" alignItems="center" backgroundColor={colors.bg.base}>
-        <Text fontSize={17} fontWeight="600" color={colors.text.secondary}>
-          Loading your dashboard...
+      <YStack flex={1} padding={24} justifyContent="center" alignItems="center" backgroundColor={colors.bg.base}>
+        <Text fontSize={19} fontWeight="700" color={colors.text.secondary}>
+          Loading your safety summary...
         </Text>
       </YStack>
     );
@@ -63,21 +48,22 @@ const DashboardTab: React.FC = () => {
 
   if (!dashboard) {
     return (
-      <YStack flex={1} padding="$4" justifyContent="center" alignItems="center" space={12} backgroundColor={colors.bg.base}>
-        <Text fontSize={22} fontWeight="700" textAlign="center" color={colors.text.primary}>
+      <YStack flex={1} padding={24} justifyContent="center" alignItems="center" space={14} backgroundColor={colors.bg.base}>
+        <Text fontSize={26} fontWeight="800" textAlign="center" color={colors.text.primary}>
           Dashboard unavailable
         </Text>
-        <Text fontSize={15} color={colors.text.secondary} textAlign="center">
+        <Text fontSize={17} color={colors.text.secondary} textAlign="center">
           {error || 'We could not load your HomeAlone overview right now.'}
         </Text>
         <Button
           backgroundColor={colors.primary.base}
           borderRadius={12}
-          height={48}
+          height={54}
+          paddingHorizontal={24}
           marginTop={8}
           onPress={refreshDashboard}
         >
-          <Text fontSize={15} fontWeight="600" color="#FFFFFF" textAlign="center">
+          <Text fontSize={17} fontWeight="800" color="#FFFFFF" textAlign="center">
             Try again
           </Text>
         </Button>
@@ -86,21 +72,13 @@ const DashboardTab: React.FC = () => {
   }
 
   const primaryContact = dashboard.contacts[0] || null;
+  const serviceActive = dashboard.subscription.serviceActive === true;
   const sleepSummary = dashboard.settings.sleepTimerEnabled
     ? `${formatHour(dashboard.settings.sleepStartHour)} to ${formatHour(dashboard.settings.sleepEndHour)}`
-    : 'Sleep timer is off';
-  const subscriptionSummary =
-    dashboard.subscription.plan === 'free'
-      ? 'Free plan'
-      : `${dashboard.subscription.plan} plan`;
-  const subscriptionDetail =
-    dashboard.subscription.plan === 'free'
-      ? 'Upgrade from Subscription when you are ready.'
-      : dashboard.subscription.endDate
-        ? `${
-            dashboard.subscription.autoRenew ? 'Renews' : 'Active until'
-          } ${new Date(dashboard.subscription.endDate).toLocaleDateString()}`
-        : 'Billing details will appear after activation.';
+    : 'Off';
+  const referralCents = dashboard.referral.stats.rewardCents || 0;
+  const lastOk = formatDateTime(dashboard.stats.lastCheckInOk);
+  const checkInStatus = serviceActive ? 'OK' : 'Paused';
 
   return (
     <ScrollView
@@ -114,214 +92,248 @@ const DashboardTab: React.FC = () => {
         />
       }
     >
-      <YStack space={16}>
-        {/* Hero banner */}
-        <View
-          backgroundColor={colors.primary.base}
-          borderRadius={20}
-          padding={20}
-        >
-          <YStack space={6}>
-            <Text fontSize={13} color="rgba(255,255,255,0.7)" textTransform="uppercase" letterSpacing={0.8}>
-              Daily overview
-            </Text>
-            <Text fontSize={26} fontWeight="800" color="#FFFFFF">
-              Welcome, {dashboard.user.name || user?.name || user?.username}
-            </Text>
-            <Text fontSize={15} color="rgba(255,255,255,0.8)">
-              Your safety settings, emergency contacts, and recent response history are all in one place.
-            </Text>
-          </YStack>
-        </View>
-
+      <YStack space={10}>
         {error ? (
           <AppCard accent="warning">
-            <Text fontSize={13} color={colors.accent.warning}>
+            <Text fontSize={16} color={colors.accent.warning}>
               {error}
             </Text>
           </AppCard>
         ) : null}
 
-        {/* Stat cards grid */}
-        <XStack space={12}>
-          <AppCard accent="primary" flex={1} minHeight={110}>
-            <YStack flex={1} justifyContent="space-between">
-              <YStack space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
-                  Check-in interval
-                </Text>
-                <Text fontSize={22} fontWeight="800" color={colors.primary.base}>
-                  {formatInterval(dashboard.settings.checkInIntervalHours)}
-                </Text>
-              </YStack>
-              <Text fontSize={12} color={colors.text.tertiary}>
-                How long HomeAlone waits before starting a safety check.
-              </Text>
-            </YStack>
+        <XStack space={10}>
+          <AppCard flex={1} padding={14}>
+            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+              Check-in every
+            </Text>
+            <Text fontSize={22} lineHeight={28} fontWeight="900" color={colors.text.primary} marginTop={3}>
+              {plural(dashboard.settings.checkInIntervalHours, 'hour')}
+            </Text>
+            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+              Since last activity
+            </Text>
           </AppCard>
-          <AppCard accent="warning" flex={1} minHeight={110}>
-            <YStack flex={1} justifyContent="space-between">
-              <YStack space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
-                  Emergency countdown
-                </Text>
-                <Text fontSize={22} fontWeight="800" color={colors.accent.warning}>
-                  {formatMinutes(dashboard.settings.emergencyCountdownMinutes)}
-                </Text>
-              </YStack>
-              <Text fontSize={12} color={colors.text.tertiary}>
-                How long you have to respond before escalation starts.
-              </Text>
-            </YStack>
+          <AppCard flex={1} padding={14}>
+            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+              Respond within
+            </Text>
+            <Text fontSize={22} lineHeight={28} fontWeight="900" color={colors.secondary.base} marginTop={3}>
+              {plural(dashboard.settings.emergencyCountdownMinutes, 'min')}
+            </Text>
+            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+              Emergency countdown
+            </Text>
           </AppCard>
         </XStack>
 
-        <XStack space={12}>
-          <AppCard accent="success" flex={1} minHeight={110}>
-            <YStack flex={1} justifyContent="space-between">
-              <YStack space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
-                  Sleep timer
-                </Text>
-                <Text fontSize={22} fontWeight="800" color={colors.accent.success}>
-                  {dashboard.settings.sleepTimerEnabled ? 'Scheduled' : 'Off'}
-                </Text>
-              </YStack>
-              <Text fontSize={12} color={colors.text.tertiary}>
-                {sleepSummary}
+        <XStack space={10}>
+          <AppCard flex={1} minHeight={112} padding={14}>
+            <View
+              width={30}
+              height={30}
+              borderRadius={8}
+              backgroundColor={colors.primary.light}
+              alignItems="center"
+              justifyContent="center"
+              marginBottom={8}
+            >
+              <Text color={colors.primary.base} fontWeight="900">
+                T
               </Text>
-            </YStack>
+            </View>
+            <Text fontSize={10} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+              Check-in status
+            </Text>
+            <Text fontSize={22} lineHeight={27} fontWeight="900" color={colors.text.primary}>
+              {checkInStatus}
+            </Text>
+            <Text fontSize={12} color={colors.text.secondary} marginTop={2}>
+              {serviceActive ? 'Monitoring active' : 'Plan needed'}
+            </Text>
           </AppCard>
-          <AppCard accent="info" flex={1} minHeight={110}>
-            <YStack flex={1} justifyContent="space-between">
-              <YStack space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
-                  Subscription
-                </Text>
-                <Text fontSize={22} fontWeight="800" color="#8A9BB0">
-                  {subscriptionSummary}
-                </Text>
-              </YStack>
-              <Text fontSize={12} color={colors.text.tertiary}>
-                {subscriptionDetail}
+
+          <AppCard flex={1} minHeight={112} padding={14}>
+            <View
+              width={30}
+              height={30}
+              borderRadius={8}
+              backgroundColor={colors.secondary.light}
+              alignItems="center"
+              justifyContent="center"
+              marginBottom={8}
+            >
+              <Text color={colors.secondary.dark} fontWeight="900">
+                S
               </Text>
-            </YStack>
+            </View>
+            <Text fontSize={10} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+              DND mode
+            </Text>
+            <Text fontSize={22} lineHeight={27} fontWeight="900" color={colors.text.primary}>
+              {dashboard.settings.dnd ? 'On' : 'Off'}
+            </Text>
+            <Text fontSize={12} color={colors.text.secondary} marginTop={2}>
+              {dashboard.settings.dnd ? 'Alerts silenced' : 'Check-ins active'}
+            </Text>
           </AppCard>
         </XStack>
 
-        {/* Contact readiness */}
         <AppCard>
           <YStack space={12}>
-            <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
-              Contact readiness
-            </Text>
+            <XStack alignItems="center" justifyContent="space-between">
+              <Text fontSize={13} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Emergency contact
+              </Text>
+              {primaryContact ? <AppStatusBadge variant="success" label="Ready" /> : null}
+            </XStack>
+
             {primaryContact ? (
               <>
                 <XStack alignItems="center" space={12}>
                   <View
-                    width={44}
-                    height={44}
-                    borderRadius={22}
-                    backgroundColor={colors.primary.light}
+                    width={48}
+                    height={48}
+                    borderRadius={24}
+                    backgroundColor={colors.secondary.light}
                     justifyContent="center"
                     alignItems="center"
                   >
-                    <Text fontSize={18} fontWeight="700" color={colors.primary.base}>
+                    <Text fontSize={22} fontWeight="900" color={colors.secondary.dark}>
                       {primaryContact.name.charAt(0).toUpperCase()}
                     </Text>
                   </View>
                   <YStack flex={1}>
-                    <Text fontSize={17} fontWeight="700" color={colors.text.primary}>
+                    <Text fontSize={16} fontWeight="900" color={colors.text.primary}>
                       {primaryContact.name}
                     </Text>
-                    <AppStatusBadge
-                      variant="info"
-                      label={`Priority ${primaryContact.priority} contact`}
-                    />
+                    <Text fontSize={13} color={colors.text.secondary} lineHeight={19}>
+                      Priority {primaryContact.priority} - {`${primaryContact.countryCode || ''}${primaryContact.phone}`}
+                    </Text>
+                    {primaryContact.email ? (
+                      <Text fontSize={13} color={colors.text.secondary} lineHeight={19}>
+                        {primaryContact.email}
+                      </Text>
+                    ) : null}
                   </YStack>
                 </XStack>
-                <Separator borderColor={colors.divider} />
-                <YStack space={6}>
-                  <Text fontSize={15} color={colors.text.secondary}>
-                    Phone: {`${primaryContact.countryCode || ''}${primaryContact.phone}`}
-                  </Text>
-                  <Text fontSize={15} color={colors.text.secondary}>
-                    Email: {primaryContact.email || 'Not provided'}
-                  </Text>
-                  <Text fontSize={15} color={colors.text.secondary}>
-                    Relationship: {primaryContact.relationship || 'Not specified'}
-                  </Text>
-                </YStack>
               </>
             ) : (
-              <Text fontSize={15} color={colors.text.secondary}>
-                No emergency contacts are set yet. Add one from Emergency Contacts so alerts can reach someone quickly.
+              <Text fontSize={17} lineHeight={24} color={colors.text.secondary}>
+                Add one trusted contact so alerts have somewhere to go.
               </Text>
             )}
           </YStack>
         </AppCard>
 
-        {/* Response history */}
+        <XStack space={10}>
+          <AppCard flex={1} padding={14}>
+            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+              Sleep timer
+            </Text>
+            <Text fontSize={16} lineHeight={22} fontWeight="900" color={colors.text.primary} marginTop={3}>
+              {sleepSummary}
+            </Text>
+            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+              Auto-silenced
+            </Text>
+          </AppCard>
+          <AppCard flex={1} padding={14}>
+            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+              Referral credit
+            </Text>
+            <Text fontSize={24} lineHeight={30} fontWeight="900" color={colors.secondary.dark} marginTop={2}>
+              {formatMoney(referralCents)}
+            </Text>
+            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+              Share to earn $10
+            </Text>
+          </AppCard>
+        </XStack>
+
         <AppCard>
           <YStack space={12}>
-            <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
-              Response history
-            </Text>
-            <XStack space={12}>
-              <YStack flex={1} space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
-                  Last alarm
+            <XStack alignItems="center" gap={12}>
+              <View
+                width={30}
+                height={30}
+                borderRadius={8}
+                backgroundColor={colors.primary.light}
+                alignItems="center"
+                justifyContent="center"
+              >
+                <Text color={colors.primary.base} fontWeight="900">
+                  A
                 </Text>
-                <Text fontSize={15} fontWeight="700" color={colors.text.primary}>
-                  {formatDateTime(dashboard.stats.lastAlarmTime)}
+              </View>
+              <YStack flex={1}>
+                <Text fontSize={10} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                  Recent activity
                 </Text>
+                <XStack alignItems="baseline" justifyContent="space-between">
+                  <Text fontSize={15} fontWeight="900" color={colors.text.primary}>
+                    Active today
+                  </Text>
+                  <Text fontSize={11} fontWeight="800" color={colors.accent.success}>
+                    {serviceActive ? 'Live' : 'Paused'}
+                  </Text>
+                </XStack>
               </YStack>
-              <YStack flex={1} space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
-                  Last contact
+            </XStack>
+
+            <XStack justifyContent="space-between" gap={10}>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={14} fontWeight="900" color={colors.text.primary} textAlign="center">
+                  {lastOk}
                 </Text>
-                <Text fontSize={15} fontWeight="700" color={colors.text.primary}>
-                  {formatDateTime(dashboard.stats.lastContactTime)}
-                </Text>
-              </YStack>
-              <YStack flex={1} space={4}>
-                <Text fontSize={11} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
+                <Text fontSize={11} color={colors.text.tertiary} marginTop={1}>
                   Last OK
                 </Text>
-                <Text fontSize={15} fontWeight="700" color={colors.text.primary}>
-                  {formatDateTime(dashboard.stats.lastCheckInOk)}
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={15} fontWeight="900" color={colors.text.primary}>
+                  {dashboard.stats.totalEmergencies}
+                </Text>
+                <Text fontSize={11} color={colors.text.tertiary} marginTop={1}>
+                  Alerts sent
+                </Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={15} fontWeight="900" color={colors.text.primary}>
+                  {dashboard.stats.totalOkResponses}
+                </Text>
+                <Text fontSize={11} color={colors.text.tertiary} marginTop={1}>
+                  Check-ins answered
                 </Text>
               </YStack>
             </XStack>
           </YStack>
         </AppCard>
 
-        {/* Lifetime totals */}
-        <AppCard>
-          <YStack space={12}>
-            <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
-              Lifetime totals
+        <XStack space={8}>
+          <Button
+            flex={1}
+            height={48}
+            borderRadius={14}
+            backgroundColor={colors.primary.base}
+            borderWidth={0}
+          >
+            <Text fontSize={15} fontWeight="900" color="#FFFFFF">
+              I'm OK
             </Text>
-            <XStack flexWrap="wrap" space={0}>
-              {[
-                { label: 'Total alarms', value: dashboard.stats.totalAlarmsEver },
-                { label: 'Contact calls', value: dashboard.stats.totalContactCallsEver },
-                { label: 'OK responses', value: dashboard.stats.totalOkResponses },
-                { label: 'Missed', value: dashboard.stats.totalMissedResponses },
-                { label: 'Emergencies', value: dashboard.stats.totalEmergencies },
-              ].map((stat, i) => (
-                <View key={i} width="50%" paddingVertical={8}>
-                  <Text fontSize={12} color={colors.text.tertiary}>
-                    {stat.label}
-                  </Text>
-                  <Text fontSize={22} fontWeight="800" color={colors.text.primary}>
-                    {stat.value}
-                  </Text>
-                </View>
-              ))}
-            </XStack>
-          </YStack>
-        </AppCard>
+          </Button>
+          <Button
+            flex={1}
+            height={48}
+            borderRadius={14}
+            backgroundColor={colors.bg.card}
+            borderWidth={1}
+            borderColor={colors.border}
+          >
+            <Text fontSize={15} fontWeight="800" color={colors.text.primary}>
+              I need help
+            </Text>
+          </Button>
+        </XStack>
       </YStack>
     </ScrollView>
   );
@@ -332,8 +344,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 28,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
   },
 });
 

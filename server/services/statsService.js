@@ -4,6 +4,11 @@ const Friend = require('../models/Friend');
 const CheckInSession = require('../models/CheckInSession');
 const EmergencyAlert = require('../models/EmergencyAlert');
 const { getEffectiveDndState } = require('./sleepWindowService');
+const { buildSubscriptionAccessPayload } = require('./subscriptionAccessService');
+
+const REFERRAL_REWARD_CENTS_PER_CONVERSION = Number(
+  process.env.REFERRAL_REWARD_CENTS_PER_CONVERSION || 1000,
+);
 
 function toObjectId(value) {
   if (value instanceof mongoose.Types.ObjectId) {
@@ -20,6 +25,7 @@ function buildSubscriptionPayload(user) {
     startDate: user.subscription?.subscriptionStartDate || null,
     endDate: user.subscription?.subscriptionEndDate || null,
     autoRenew: user.subscription?.autoRenew ?? true,
+    ...buildSubscriptionAccessPayload(user),
   };
 }
 
@@ -36,6 +42,27 @@ function buildSettingsPayload(user, now = new Date()) {
     dnd: user.dnd === true,
     effectiveDnd: effectiveState.effectiveDnd,
     dndReason: effectiveState.dndReason,
+  };
+}
+
+function buildReferralPayload(user) {
+  const explicitCents = Number(user.referralStats?.rewardCents || 0);
+  const legacyMonths = Number(user.referralStats?.rewardMonths || 0);
+  const rewardCents =
+    explicitCents > 0
+      ? explicitCents
+      : legacyMonths * REFERRAL_REWARD_CENTS_PER_CONVERSION;
+
+  return {
+    code: user.referralCode || null,
+    referredBy: user.referredBy ? user.referredBy.toString() : null,
+    stats: {
+      signups: Number(user.referralStats?.signups || 0),
+      conversions: Number(user.referralStats?.conversions || 0),
+      rewardCents,
+      rewardDollars: rewardCents / 100,
+    },
+    rewardGrantedAt: user.referralRewardGrantedAt || null,
   };
 }
 
@@ -294,6 +321,7 @@ async function getUserDashboardStats(userId, options = {}) {
     settings: buildSettingsPayload(user),
     contacts: contacts.map(normalizeContact),
     subscription: buildSubscriptionPayload(user),
+    referral: buildReferralPayload(user),
     stats: {
       lastAlarmTime: stats.lastAlarmTime,
       lastContactTime: stats.lastContactTime,
@@ -487,6 +515,11 @@ async function getGlobalStats() {
       User.countDocuments({
         role: { $ne: 'admin' },
         'subscription.plan': { $in: ['monthly', 'yearly'] },
+        'subscription.stripeSubscriptionStatus': { $in: ['active', 'trialing'] },
+        $or: [
+          { 'subscription.subscriptionEndDate': null },
+          { 'subscription.subscriptionEndDate': { $gt: now } },
+        ],
       }),
       User.aggregate([
         { $match: { role: { $ne: 'admin' } } },

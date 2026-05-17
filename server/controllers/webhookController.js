@@ -1,6 +1,17 @@
 const stripeService = require('../services/stripeService');
 const User = require('../models/User');
 const SubscriptionHistory = require('../models/Subscription');
+const { rewardReferrerForConversion } = require('../services/referralService');
+const { armCheckInWindowRespectingSleep } = require('../services/checkInWindowService');
+const { getEffectiveDndState } = require('../services/sleepWindowService');
+const {
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('../services/subscriptionAccessService');
+
+function isConversionStatus(status) {
+  return status === 'active' || status === 'trialing';
+}
 
 async function handleWebhook(req, res, next) {
   console.log('[webhook] NEW WEBHOOK EVENT RECEIVED');
@@ -130,6 +141,21 @@ async function persistSubscriptionState(user, stripeSubscription, customerId, pl
     autoRenew: !stripeSubscription.cancel_at_period_end,
   };
 
+  if (hasActiveSubscription(user) && user.checkInStatus !== 'emergency') {
+    const effectiveState = getEffectiveDndState(user);
+    if (effectiveState.dndReason === 'manual') {
+      clearCheckInSchedule(user);
+    } else if (
+      effectiveState.dndReason === 'sleep' ||
+      !user.nextCheckInAt ||
+      user.nextCheckInAt <= new Date()
+    ) {
+      armCheckInWindowRespectingSleep(user);
+    }
+  } else if (!hasActiveSubscription(user)) {
+    clearCheckInSchedule(user);
+  }
+
   console.log('[webhook] User subscription object before save:', JSON.stringify(user.subscription, null, 2));
 
   await user.save();
@@ -148,6 +174,10 @@ async function persistSubscriptionState(user, stripeSubscription, customerId, pl
     },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
+
+  if (isConversionStatus(stripeSubscription.status)) {
+    await rewardReferrerForConversion(user);
+  }
 
   console.log('[webhook] persistSubscriptionState - COMPLETE');
 }
@@ -258,6 +288,7 @@ async function handleSubscriptionDeleted(subscription) {
   user.subscription.stripeSubscriptionStatus = 'canceled';
   user.subscription.subscriptionEndDate = new Date();
   user.subscription.autoRenew = false;
+  clearCheckInSchedule(user);
 
   await user.save();
 
@@ -291,6 +322,7 @@ async function handlePaymentFailed(invoice) {
 
   user.subscription = user.subscription || {};
   user.subscription.stripeSubscriptionStatus = 'past_due';
+  clearCheckInSchedule(user);
   await user.save();
 
   if (user.subscription?.stripeSubscriptionId) {

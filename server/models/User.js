@@ -1,6 +1,28 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+function sanitizeCodePart(raw) {
+  return String(raw || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(0, 6);
+}
+
+function buildReferralCodeSeed(user) {
+  const usernameSeed = sanitizeCodePart(user?.username);
+  const nameSeed = sanitizeCodePart(user?.name);
+  return (usernameSeed || nameSeed || 'HOME').slice(0, 4);
+}
+
+function randomCodeSuffix(length = 4) {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let value = '';
+  for (let i = 0; i < length; i += 1) {
+    value += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return value;
+}
+
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -138,11 +160,76 @@ const userSchema = new mongoose.Schema(
             default: true
         }
     },
+    referralCode: {
+        type: String,
+        unique: true,
+        sparse: true,
+        trim: true,
+        uppercase: true,
+    },
+    referredBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null,
+        index: true,
+    },
+    referralRewardGrantedAt: {
+        type: Date,
+        default: null,
+    },
+    referralStats: {
+        signups: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        conversions: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        rewardMonths: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+        rewardCents: {
+            type: Number,
+            default: 0,
+            min: 0,
+        },
+    },
   },
   {
     timestamps: true,
   }
 );
+
+userSchema.pre('validate', async function (next) {
+  try {
+    if (this.referralCode) {
+      return next();
+    }
+
+    const seed = buildReferralCodeSeed(this);
+    const Model = this.constructor;
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      const candidate = `${seed}${randomCodeSuffix(4 + Math.min(attempt, 3))}`;
+      // eslint-disable-next-line no-await-in-loop
+      const exists = await Model.exists({ referralCode: candidate });
+      if (!exists) {
+        this.referralCode = candidate;
+        return next();
+      }
+    }
+
+    this.referralCode = `${seed}${Date.now().toString(36).toUpperCase().slice(-6)}`;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+});
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {

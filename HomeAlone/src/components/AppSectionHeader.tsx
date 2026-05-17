@@ -9,11 +9,11 @@ type AppSectionHeaderProps = {
 
 export const AppSectionHeader: React.FC<AppSectionHeaderProps> = ({ title, subtitle }) => (
   <View marginBottom={4}>
-    <Text fontSize={22} fontWeight="700" color={colors.text.primary}>
+    <Text fontSize={24} fontWeight="900" color={colors.text.primary}>
       {title}
     </Text>
     {subtitle && (
-      <Text fontSize={15} color={colors.text.secondary} marginTop={4}>
+      <Text fontSize={17} lineHeight={23} color={colors.text.secondary} marginTop={4}>
         {subtitle}
       </Text>
     )}

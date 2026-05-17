@@ -10,6 +10,15 @@ const {
 const { getEffectiveDndState, resolveTimezone } = require('../services/sleepWindowService');
 const { buildUserResponse } = require('../services/userResponseService');
 const { getUserDashboardStats } = require('../services/statsService');
+const {
+  applyReferralCode: applyReferralCodeService,
+  buildReferralPayload,
+  ensureReferralCode,
+} = require('../services/referralService');
+const {
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('../services/subscriptionAccessService');
 
 // Get user profile
 exports.getProfile = async (req, res) => {
@@ -19,6 +28,8 @@ exports.getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    await ensureReferralCode(user);
     
     res.status(200).json(buildUserResponse(user));
   } catch (error) {
@@ -31,6 +42,11 @@ exports.getProfile = async (req, res) => {
 
 exports.getDashboard = async (req, res, next) => {
   try {
+    const user = await User.findById(req.userId).exec();
+    if (user) {
+      await ensureReferralCode(user);
+    }
+
     const dashboard = await getUserDashboardStats(req.userId);
 
     if (!dashboard) {
@@ -40,6 +56,47 @@ exports.getDashboard = async (req, res, next) => {
     return res.status(200).json(dashboard);
   } catch (error) {
     return next(error);
+  }
+};
+
+exports.getReferralStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).exec();
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    await ensureReferralCode(user);
+
+    return res.status(200).json({
+      referral: buildReferralPayload(user),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Error fetching referral status',
+      error: error.message,
+    });
+  }
+};
+
+exports.applyReferralCode = async (req, res) => {
+  try {
+    const code = req.body?.code;
+    const user = await applyReferralCodeService({
+      userId: req.userId,
+      code,
+    });
+
+    return res.status(200).json({
+      message: 'Referral code applied successfully',
+      referral: buildReferralPayload(user),
+    });
+  } catch (error) {
+    const statusCode = Number(error?.statusCode) || 500;
+    return res.status(statusCode).json({
+      message: error.message || 'Error applying referral code',
+    });
   }
 };
 
@@ -195,7 +252,11 @@ exports.updateSettings = async (req, res) => {
     }
 
     // If the user is not in an emergency, schedule (or disable) the next check-in.
-    if (user.checkInStatus !== 'emergency') {
+    if (!hasActiveSubscription(user)) {
+      user.checkInStatus = 'ok';
+      await cancelPendingSession(req.userId, new Date(), 'suppressed');
+      clearCheckInSchedule(user);
+    } else if (user.checkInStatus !== 'emergency') {
       const now = new Date();
       const effectiveState = getEffectiveDndState(user, now);
 
@@ -302,6 +363,18 @@ exports.resetCheckInWindow = async (req, res) => {
       return res
         .status(200)
         .json({ ok: false, ignored: true, reason: effectiveState.dndReason || 'dnd-enabled', requestId });
+    }
+
+    if (!hasActiveSubscription(user, now)) {
+      clearCheckInSchedule(user);
+      await user.save();
+      console.log(`${logPrefix} ignore reason=subscription-required`);
+      return res.status(200).json({
+        ok: false,
+        ignored: true,
+        reason: 'subscription-required',
+        requestId,
+      });
     }
 
     if (user.checkInStatus === 'emergency') {
@@ -443,6 +516,13 @@ exports.updateCheckInStatus = async (req, res) => {
           user._id.toString(),
         );
       }
+
+      if (hasActiveSubscription(user)) {
+        armCheckInWindowRespectingSleep(user, new Date());
+      } else {
+        clearCheckInSchedule(user);
+      }
+      await user.save();
     }
     
     res.status(200).json({
@@ -467,6 +547,12 @@ exports.sendTestNotification = async (req, res) => {
     }
 
     const effectiveState = getEffectiveDndState(user);
+
+    if (!hasActiveSubscription(user)) {
+      return res.status(402).json({
+        message: 'An active subscription is required to send HomeAlone notifications.',
+      });
+    }
 
     if (effectiveState.effectiveDnd === true) {
       const reason =

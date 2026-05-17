@@ -5,17 +5,43 @@ const {
   getHardDeadlineMs,
 } = require('../services/checkInWindowService');
 const { buildUserResponse } = require('../services/userResponseService');
+const { ensureReferralCode, sanitizeReferralCode } = require('../services/referralService');
+const {
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('../services/subscriptionAccessService');
 
 // Register a new user
 exports.register = async (req, res) => {
-  console.log("Register Endpoint Hit")
   try {
+    const {
+      username,
+      password,
+      name,
+      email,
+      phone,
+      age,
+      referralCode: rawReferralCode,
+    } = req.body || {};
 
-    const { username, password, name, email, phone, age } = req.body;
+    const cleanUsername = String(username || '').trim();
+    const cleanName = String(name || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    const cleanPhone = String(phone || '').trim();
+    const numericAge = Number(age);
+    const referralCode = sanitizeReferralCode(rawReferralCode);
+    const hasReferralInput =
+      typeof rawReferralCode === 'string' && rawReferralCode.trim().length > 0;
+
+    if (!cleanUsername || !password || !cleanName || !cleanEmail || !cleanPhone || !Number.isFinite(numericAge) || numericAge <= 0) {
+      return res.status(400).json({
+        message: 'Missing or invalid registration fields',
+      });
+    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ 
-      $or: [{ username }, { email }] 
+      $or: [{ username: cleanUsername }, { email: cleanEmail }],
     });
     
     if (existingUser) {
@@ -24,23 +50,51 @@ exports.register = async (req, res) => {
       });
     }
 
+    if (hasReferralInput && !referralCode) {
+      return res.status(400).json({
+        message: 'Referral code is invalid',
+      });
+    }
+
+    let referrer = null;
+    if (referralCode) {
+      referrer = await User.findOne({ referralCode }).select('_id').exec();
+      if (!referrer) {
+        return res.status(400).json({
+          message: 'Referral code is invalid',
+        });
+      }
+    }
+
     // Create new user
     const user = new User({
-      username,
+      username: cleanUsername,
       password,
-      name,
-      email,
-      phone,
-      age,
+      name: cleanName,
+      email: cleanEmail,
+      phone: cleanPhone,
+      age: numericAge,
+      referredBy: referrer ? referrer._id : null,
     });
 
     await user.save();
 
+    if (referrer) {
+      await User.updateOne(
+        { _id: referrer._id },
+        { $inc: { 'referralStats.signups': 1 } },
+      ).exec();
+    }
 
     res.status(201).json({
       message: 'User registered successfully',
     });
   } catch (error) {
+    if (error?.code === 11000) {
+      return res.status(409).json({
+        message: 'An account with those details already exists',
+      });
+    }
     res.status(500).json({
       message: 'Error registering user',
       error: error.message,
@@ -68,7 +122,12 @@ exports.login = async (req, res) => {
 
     // Ensure the user has a nextCheckInAt scheduled (server-driven timer)
     try {
-      if (user.checkInStatus !== 'emergency' && user.dnd !== true) {
+      await ensureReferralCode(user);
+
+      if (!hasActiveSubscription(user)) {
+        clearCheckInSchedule(user);
+        await user.save();
+      } else if (user.checkInStatus !== 'emergency' && user.dnd !== true) {
         const now = new Date();
         // If nothing scheduled yet or the scheduled time is in the past, schedule a new one.
         if (!user.nextCheckInAt || user.nextCheckInAt <= now) {

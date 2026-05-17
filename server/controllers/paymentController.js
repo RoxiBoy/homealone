@@ -1,5 +1,11 @@
 const stripeService = require('../services/stripeService');
 const User = require('../models/User');
+const { armCheckInWindowRespectingSleep } = require('../services/checkInWindowService');
+const {
+  buildSubscriptionAccessPayload,
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('../services/subscriptionAccessService');
 
 function buildSubscriptionPayload(user) {
   return {
@@ -8,6 +14,7 @@ function buildSubscriptionPayload(user) {
     startDate: user.subscription?.subscriptionStartDate || null,
     endDate: user.subscription?.subscriptionEndDate || null,
     autoRenew: user.subscription?.autoRenew ?? true,
+    ...buildSubscriptionAccessPayload(user),
   };
 }
 
@@ -70,6 +77,55 @@ async function getSubscriptionStatus(req, res, next) {
   }
 }
 
+async function activateTestSubscription(req, res, next) {
+  try {
+    const { plan = 'monthly' } = req.body || {};
+    const user = await loadAuthenticatedUser(req);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!['monthly', 'yearly'].includes(plan)) {
+      return res.status(400).json({
+        message: 'Invalid plan. Must be "monthly" or "yearly"',
+      });
+    }
+
+    const now = new Date();
+    const endDate = new Date(now);
+    if (plan === 'yearly') {
+      endDate.setFullYear(endDate.getFullYear() + 1);
+    } else {
+      endDate.setMonth(endDate.getMonth() + 1);
+    }
+
+    if (!user.subscription) {
+      user.subscription = {};
+    }
+
+    user.subscription.plan = plan;
+    user.subscription.stripeSubscriptionStatus = 'active';
+    user.subscription.subscriptionStartDate = now;
+    user.subscription.subscriptionEndDate = endDate;
+    user.subscription.autoRenew = true;
+
+    // Temporary testing path: grant access without creating a Stripe checkout session.
+    if (user.checkInStatus !== 'emergency' && user.dnd !== true) {
+      armCheckInWindowRespectingSleep(user, now);
+    }
+
+    await user.save();
+
+    res.json({
+      message: 'Test subscription activated',
+      subscription: buildSubscriptionPayload(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function cancelSubscription(req, res, next) {
   try {
     const user = await loadAuthenticatedUser(req);
@@ -101,6 +157,10 @@ async function cancelSubscription(req, res, next) {
 
     if (immediately) {
       user.subscription.plan = 'free';
+    }
+
+    if (!hasActiveSubscription(user)) {
+      clearCheckInSchedule(user);
     }
 
     await user.save();
@@ -154,6 +214,7 @@ async function reactivateSubscription(req, res, next) {
 }
 
 module.exports = {
+  activateTestSubscription,
   createCheckoutSession,
   getSubscriptionStatus,
   cancelSubscription,

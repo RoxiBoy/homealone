@@ -377,51 +377,52 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
           alignItems="center"
         >
           <YStack
-            width="85%"
+            width="90%"
             padding={24}
             space={16}
             backgroundColor={colors.bg.card}
-            borderRadius={24}
+            borderRadius={8}
           >
             <Text
-              fontSize={26}
-              fontWeight="700"
+              fontSize={32}
+              lineHeight={38}
+              fontWeight="900"
               textAlign="center"
               color={colors.text.primary}
             >
-              {'\uD83D\uDC4D'} Are you okay?
+              Are you okay?
             </Text>
-            <Text fontSize={15} color={colors.text.secondary} textAlign="center">
+            <Text fontSize={18} lineHeight={25} color={colors.text.secondary} textAlign="center">
               Please confirm your safety.
             </Text>
-            <Text fontSize={38} fontWeight="700" textAlign="center" color={colors.primary.base}>
+            <Text fontSize={44} fontWeight="900" textAlign="center" color={colors.secondary.dark}>
               {countdownSeconds}s
             </Text>
-            <Text fontSize={13} color={colors.text.tertiary} textAlign="center" marginTop={-8}>
+            <Text fontSize={15} color={colors.text.tertiary} textAlign="center" marginTop={-8}>
               time remaining
             </Text>
 
-            <YStack space={8} marginTop={8}>
+            <YStack space={10} marginTop={8}>
               <Button
-                height={56}
+                height={64}
                 borderRadius={14}
                 backgroundColor={colors.accent.success}
                 borderWidth={0}
                 onPress={handleRespondOk}
               >
-                <Text fontSize={19} fontWeight="700" color="#FFFFFF">
+                <Text fontSize={22} fontWeight="900" color="#FFFFFF">
                   I'm OK
                 </Text>
               </Button>
               <Button
-                height={52}
+                height={58}
                 borderRadius={14}
                 backgroundColor="transparent"
                 borderWidth={1}
                 borderColor={colors.border}
                 onPress={() => handleNotOkay()}
               >
-                <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
+                <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
                   I'm Not OK
                 </Text>
               </Button>
@@ -447,12 +448,12 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
             maxHeight="80%"
             padding={24}
             backgroundColor={colors.bg.card}
-            borderRadius={24}
+            borderRadius={8}
           >
-            <Text fontSize={22} fontWeight="700" textAlign="center" color={colors.text.primary} marginBottom={8}>
-              {'\uD83D\uDCDE'} Emergency Contacts
+            <Text fontSize={26} fontWeight="900" textAlign="center" color={colors.text.primary} marginBottom={8}>
+              Emergency Contacts
             </Text>
-            <Text fontSize={15} color={colors.text.secondary} textAlign="center" marginBottom={16}>
+            <Text fontSize={18} color={colors.text.secondary} textAlign="center" marginBottom={16}>
               Call someone who can help you
             </Text>
 
@@ -478,13 +479,13 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
                         >
                           <XStack alignItems="center" justifyContent="space-between">
                             <YStack flex={1} marginRight={12}>
-                              <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
+                              <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
                                 {friend.name}
                               </Text>
-                              <Text fontSize={13} color={colors.text.secondary}>
+                              <Text fontSize={15} color={colors.text.secondary}>
                                 Priority {friend.priority}
                               </Text>
-                              <Text fontSize={13} color={colors.text.secondary}>
+                              <Text fontSize={15} color={colors.text.secondary}>
                                 {friend.countryCode || ''}{friend.phone}
                               </Text>
                             </YStack>
@@ -496,8 +497,8 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
                               paddingHorizontal={20}
                               onPress={() => handleCallFriend(friend)}
                             >
-                              <Text fontSize={15} fontWeight="700" color="#FFFFFF">
-                                {'\uD83D\uDCDE'} Call
+                              <Text fontSize={17} fontWeight="900" color="#FFFFFF">
+                                Call
                               </Text>
                             </Button>
                           </XStack>
@@ -516,7 +517,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
               marginTop={16}
               onPress={handleImSafe}
             >
-              <Text fontSize={17} fontWeight="700" color="#FFFFFF">
+              <Text fontSize={19} fontWeight="900" color="#FFFFFF">
                 I'm Safe Now
               </Text>
             </Button>
@@ -541,12 +542,12 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
             padding={24}
             space={16}
             backgroundColor={colors.bg.card}
-            borderRadius={24}
+            borderRadius={8}
           >
-            <Text fontSize={22} fontWeight="700" textAlign="center" color={colors.accent.danger}>
-              {'\u26A0\uFE0F'} Emergency Alert Sent
+            <Text fontSize={26} fontWeight="900" textAlign="center" color={colors.accent.danger}>
+              Emergency Alert Sent
             </Text>
-            <Text fontSize={15} color={colors.text.secondary} textAlign="center">
+            <Text fontSize={18} lineHeight={25} color={colors.text.secondary} textAlign="center">
               Your emergency contact has been notified via SMS and email (if provided). 
               They should reach out to you soon.
             </Text>
@@ -559,7 +560,7 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
               marginTop={8}
               onPress={handleClearEmergency}
             >
-              <Text fontSize={17} fontWeight="700" color="#FFFFFF">
+              <Text fontSize={19} fontWeight="900" color="#FFFFFF">
                 I'm safe now
               </Text>
             </Button>

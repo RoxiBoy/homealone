@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Linking, Alert } from 'react-native';
+import { ScrollView, Alert } from 'react-native';
 import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { usePayment, SubscriptionPlan } from '../../contexts/PaymentContext';
 import { AppCard } from '../../components/AppCard';
@@ -48,14 +48,14 @@ const STATUS_TONE: Record<
   { background: string; text: string; border: string }
 > = {
   success: {
-    background: '#E6F0E6',
+    background: '#E8F5EE',
     text: colors.accent.success,
-    border: '#C8DCC8',
+    border: '#CFE8D9',
   },
   warning: {
-    background: '#F5EDE0',
+    background: colors.bg.warm,
     text: colors.accent.warning,
-    border: '#E8DCC8',
+    border: '#F0D3AA',
   },
   danger: {
     background: '#F0E4E4',
@@ -79,7 +79,7 @@ function getStatusTone(status: string | null | undefined) {
 const SubscriptionScreen: React.FC = () => {
   const {
     subscription,
-    createCheckoutSession,
+    activateTestSubscription,
     checkSubscriptionStatus,
     cancelSubscription,
     reactivateSubscription,
@@ -94,10 +94,10 @@ const SubscriptionScreen: React.FC = () => {
 
   const handleSubscribe = async () => {
     try {
-      const url = await createCheckoutSession(selectedPlan === 'free' ? 'monthly' : selectedPlan);
-      await Linking.openURL(url);
-    } catch (paymentError) {
-      Alert.alert('Unable to continue', 'We could not start checkout right now. Please try again.');
+      await activateTestSubscription(selectedPlan === 'free' ? 'monthly' : selectedPlan);
+      Alert.alert('Plan activated', 'Your testing plan is active. No payment flow was opened.');
+    } catch {
+      Alert.alert('Unable to continue', 'We could not activate the plan right now. Please try again.');
     }
   };
 
@@ -119,7 +119,7 @@ const SubscriptionScreen: React.FC = () => {
   const handleReactivate = async () => {
     try {
       await reactivateSubscription();
-    } catch (paymentError) {
+    } catch {
       Alert.alert('Unable to reactivate', 'Please try again in a moment.');
     }
   };
@@ -146,27 +146,31 @@ const SubscriptionScreen: React.FC = () => {
       <YStack space={16} padding={16} backgroundColor={colors.bg.base}>
         {/* Hero banner */}
         <View
-          backgroundColor={colors.primary.base}
-          borderRadius={20}
+          backgroundColor={colors.bg.cool}
+          borderRadius={8}
+          borderWidth={1}
+          borderColor="#D6E8F1"
           padding={20}
         >
           <YStack space={12}>
-            <Text fontSize={26} fontWeight="800" color="#FFFFFF">
-              Choose the right plan
+            <Text fontSize={30} lineHeight={36} fontWeight="900" color={colors.primary.dark}>
+              Keep HomeAlone monitoring active
             </Text>
-            <Text fontSize={15} color="rgba(255,255,255,0.8)">
-              Keep safety monitoring active with a simple monthly option or save with yearly billing.
+            <Text fontSize={17} lineHeight={24} color={colors.text.secondary}>
+              A subscription turns on check-ins, emergency contact escalation, and family peace of mind.
             </Text>
             <XStack flexWrap="wrap" gap={8}>
               {['Smartphone monitoring', 'Contact alerts', 'Cancel anytime'].map(label => (
                 <View
                   key={label}
-                  backgroundColor="rgba(255,255,255,0.14)"
+                  backgroundColor={colors.bg.card}
                   borderRadius={20}
                   paddingHorizontal={12}
                   paddingVertical={6}
+                  borderWidth={1}
+                  borderColor={colors.border}
                 >
-                  <Text fontSize={12} color="#FFFFFF">
+                  <Text fontSize={13} color={colors.primary.dark} fontWeight="700">
                     {label}
                   </Text>
                 </View>
@@ -181,10 +185,10 @@ const SubscriptionScreen: React.FC = () => {
             <YStack space={12}>
               <XStack alignItems="center" justifyContent="space-between">
                 <YStack>
-                  <Text fontSize={13} color={statusTone.text}>
+                  <Text fontSize={15} color={statusTone.text} fontWeight="700">
                     Current plan
                   </Text>
-                  <Text fontSize={22} fontWeight="800" color={statusTone.text} textTransform="capitalize">
+                  <Text fontSize={26} fontWeight="900" color={statusTone.text} textTransform="capitalize">
                     {subscription.plan}
                   </Text>
                 </YStack>
@@ -261,10 +265,7 @@ const SubscriptionScreen: React.FC = () => {
           </AppCard>
         ) : null}
 
-        <AppSectionHeader
-          title="Compare plans"
-          subtitle="Both plans include the full monitoring experience. Choose the billing style that suits you best."
-        />
+        <AppSectionHeader title="Plans" subtitle="Both options include the full monitoring service." />
 
         {/* Plan cards */}
         <YStack space={12}>
@@ -282,7 +283,7 @@ const SubscriptionScreen: React.FC = () => {
                   <XStack alignItems="center" justifyContent="space-between">
                     <YStack flex={1} marginRight={12}>
                       <XStack alignItems="center" gap={8} flexWrap="wrap">
-                        <Text fontSize={19} fontWeight="800" color={colors.text.primary}>
+                        <Text fontSize={23} fontWeight="900" color={colors.text.primary}>
                           {details.title}
                         </Text>
                         {details.badge ? (
@@ -292,15 +293,15 @@ const SubscriptionScreen: React.FC = () => {
                           <AppStatusBadge variant="success" label="Current" />
                         ) : null}
                       </XStack>
-                      <Text fontSize={13} color={colors.text.secondary} marginTop={4}>
+                      <Text fontSize={16} lineHeight={22} color={colors.text.secondary} marginTop={4}>
                         {details.description}
                       </Text>
                     </YStack>
                     <YStack alignItems="flex-end">
-                      <Text fontSize={32} fontWeight="900" color={colors.primary.base}>
+                      <Text fontSize={34} fontWeight="900" color={colors.primary.dark}>
                         {details.price}
                       </Text>
-                      <Text fontSize={13} color={colors.text.secondary}>
+                      <Text fontSize={15} color={colors.text.secondary}>
                         {details.cadence}
                       </Text>
                     </YStack>
@@ -312,7 +313,7 @@ const SubscriptionScreen: React.FC = () => {
                         <Text fontSize={15} color={colors.primary.base} fontWeight="700">
                           {'\u2713'}
                         </Text>
-                        <Text fontSize={13} color={colors.text.secondary}>
+                        <Text fontSize={15} color={colors.text.secondary}>
                           {item}
                         </Text>
                       </XStack>
@@ -329,7 +330,7 @@ const SubscriptionScreen: React.FC = () => {
                   >
                     <Text
                       fontSize={15}
-                      fontWeight="600"
+                      fontWeight="800"
                       color={isSelected ? '#FFFFFF' : colors.text.primary}
                     >
                       {isSelected ? 'Selected' : `Choose ${details.title}`}
@@ -344,11 +345,11 @@ const SubscriptionScreen: React.FC = () => {
         {/* Checkout CTA */}
         <AppCard>
           <YStack space={12}>
-            <Text fontSize={17} fontWeight="700" color={colors.text.primary}>
+            <Text fontSize={21} fontWeight="900" color={colors.text.primary}>
               Ready to continue?
             </Text>
-            <Text fontSize={13} color={colors.text.secondary}>
-              You are choosing the {selectedPlanCopy.title.toLowerCase()} plan. Checkout opens securely in Stripe.
+            <Text fontSize={16} lineHeight={22} color={colors.text.secondary}>
+              You are choosing the {selectedPlanCopy.title.toLowerCase()} plan. For testing, this activates instantly without opening checkout.
             </Text>
             <Button
               height={56}
@@ -362,11 +363,11 @@ const SubscriptionScreen: React.FC = () => {
               <Text fontSize={17} fontWeight="800" color="#FFFFFF">
                 {loading
                   ? 'Loading...'
-                  : `Continue with ${selectedPlanCopy.title} \u00B7 ${selectedPlanCopy.price}${selectedPlanCopy.cadence}`}
+                  : `Activate ${selectedPlanCopy.title} \u00B7 ${selectedPlanCopy.price}${selectedPlanCopy.cadence}`}
               </Text>
             </Button>
             <Text fontSize={11} color={colors.text.tertiary} textAlign="center">
-              Secure checkout. You can manage or cancel your subscription later.
+              Temporary test mode. The existing Stripe checkout flow remains in the code.
             </Text>
           </YStack>
         </AppCard>

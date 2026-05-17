@@ -35,7 +35,7 @@ export const TimerWheel: React.FC<TimerWheelProps> = ({
         viewPosition: 0.5,
       });
     }
-  }, [value]);
+  }, [options, selectedIndex, value]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: number; index: number }) => {

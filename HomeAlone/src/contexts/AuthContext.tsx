@@ -34,6 +34,19 @@ export type AuthUser = {
   effectiveDnd?: boolean;
   dndReason?: 'manual' | 'sleep' | null;
   isActive: boolean;
+  serviceActive?: boolean;
+  requiresSubscription?: boolean;
+  referral?: {
+    code: string | null;
+    referredBy: string | null;
+    stats: {
+      signups: number;
+      conversions: number;
+      rewardCents: number;
+      rewardDollars: number;
+    };
+    rewardGrantedAt: string | null;
+  };
 };
 
 export type RegisterPayload = {
@@ -43,6 +56,7 @@ export type RegisterPayload = {
   email: string;
   phone: string;
   age: number;
+  referralCode?: string;
 };
 
 type AuthContextValue = {
@@ -76,6 +90,23 @@ const normalizeUser = (raw: any): AuthUser => {
         ? raw.dndReason
         : null,
     isActive: typeof raw?.isActive === 'boolean' ? raw.isActive : false,
+    serviceActive: typeof raw?.serviceActive === 'boolean' ? raw.serviceActive : false,
+    requiresSubscription:
+      typeof raw?.requiresSubscription === 'boolean' ? raw.requiresSubscription : true,
+    referral: {
+      code: typeof raw?.referral?.code === 'string' ? raw.referral.code : null,
+      referredBy: typeof raw?.referral?.referredBy === 'string' ? raw.referral.referredBy : null,
+      stats: {
+        signups: Number(raw?.referral?.stats?.signups || 0),
+        conversions: Number(raw?.referral?.stats?.conversions || 0),
+        rewardCents: Number(raw?.referral?.stats?.rewardCents || 0),
+        rewardDollars: Number(raw?.referral?.stats?.rewardDollars || 0),
+      },
+      rewardGrantedAt:
+        typeof raw?.referral?.rewardGrantedAt === 'string'
+          ? raw.referral.rewardGrantedAt
+          : null,
+    },
   } as AuthUser;
 };
 
@@ -169,7 +200,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await persistSession(data.token, data.user);
 
       }catch(error){
-          console.log(`[AuthContext Login] Error logging in: ${error}`)
+          console.log(`[AuthContext Login] Error logging in: ${error}`);
+          throw error;
       } finally {
         setLoading(false);
       }
@@ -188,7 +220,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await login(payload.username, payload.password);
       } catch(error){
-        console.log(`[AuthContext Regiter] Error registering user: ${error}`) 
+        console.log(`[AuthContext Regiter] Error registering user: ${error}`);
+        throw error;
       } finally {
         setLoading(false);
       }

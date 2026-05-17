@@ -1,244 +1,197 @@
 import React, { useState } from 'react';
-import { Modal, TouchableOpacity } from 'react-native';
-import { View, Text, Button, YStack, XStack } from 'tamagui';
+import { TouchableOpacity } from 'react-native';
+import { Button, Text, View, XStack, YStack } from 'tamagui';
 import { useAuth } from '../../contexts/AuthContext';
+import { usePayment } from '../../contexts/PaymentContext';
 import { colors } from '../../theme/colors';
 import DashboardTab from '../dashboard/DashboardTab';
-import TipsTab from '../tips/TipsTab';
-import ProductsTab from '../products/ProductsTab';
-import ServicesTab from '../services/ServicesTab';
-import RemindersTab from '../reminders/RemindersTab';
 import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
 import SubscriptionScreen from '../subscription/SubscriptionScreen';
-import TestTab from '../test/TestTab';
+// import TestTab from '../test/TestTab';
 
-type MainTabKey =
-  | 'dashboard'
-  | 'tips'
-  | 'products'
-  | 'services'
-  | 'reminders'
-  | 'settings'
-  | 'subscription'
-  | 'emergency'
-  | 'test';
+type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription';
+// type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription' | 'test';
 
 const PRIMARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: '\u2302' },
-  { key: 'tips', label: 'Tips', icon: '\u2605' },
+  { key: 'dashboard', label: 'Home', icon: '\u2302' },
+  { key: 'emergency', label: 'Contacts', icon: '\u260E' },
   { key: 'settings', label: 'Settings', icon: '\u2699' },
-  { key: 'emergency', label: 'Emergency', icon: '\uD83D\uDEE1' },
-  { key: 'test', label: 'Test', icon: '\uD83C\uDFAF' },
-];
-
-const SECONDARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
-  { key: 'products', label: 'Products', icon: '\uD83D\uDCC5' },
-  { key: 'services', label: 'Services', icon: '\u2764' },
-  { key: 'reminders', label: 'Reminders', icon: '\u23F0' },
-  { key: 'subscription', label: 'Subscription', icon: '\uD83D\uDEE1' },
+  { key: 'subscription', label: 'Plan', icon: '$' },
+  // { key: 'test', label: 'Test', icon: '~' },
 ];
 
 const MainScreen: React.FC = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const { subscription, loading: paymentLoading } = usePayment();
   const [activeTab, setActiveTab] = useState<MainTabKey>('dashboard');
-  const [showMore, setShowMore] = useState(false);
+
+  const serviceActive = subscription?.serviceActive ?? user?.serviceActive ?? false;
+  const needsSubscription = !paymentLoading && !serviceActive;
 
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardTab />;
-      case 'tips':
-        return <TipsTab />;
-      case 'products':
-        return <ProductsTab />;
-      case 'services':
-        return <ServicesTab />;
-      case 'reminders':
-        return <RemindersTab />;
+      case 'emergency':
+        return <EmergencyContactsTab />;
       case 'settings':
         return <SettingsTab />;
       case 'subscription':
         return <SubscriptionScreen />;
-      case 'emergency':
-        return <EmergencyContactsTab />;
-      case 'test':
-        return <TestTab />;
+      // case 'test':
+      //   return <TestTab />;
       default:
         return <DashboardTab />;
     }
   };
 
-  const handleSelectTab = (key: MainTabKey) => {
-    setActiveTab(key);
-    setShowMore(false);
-  };
+  const activeLabel = PRIMARY_TABS.find(tab => tab.key === activeTab)?.label || 'Home';
 
   return (
     <View flex={1} backgroundColor={colors.bg.base}>
-      {/* Minimal header */}
       <YStack
-        paddingTop={8}
-        paddingHorizontal={16}
-        paddingBottom={8}
-        backgroundColor={colors.bg.card}
-        borderBottomWidth={1}
-        borderBottomColor={colors.divider}
+        marginHorizontal={12}
+        marginTop={10}
+        marginBottom={10}
+        padding={18}
+        backgroundColor={colors.primary.deep}
+        borderRadius={20}
+        overflow="hidden"
+        style={{
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 14,
+          elevation: 3,
+        }}
       >
         <XStack alignItems="center" justifyContent="space-between">
-          <Text fontSize={20} fontWeight="700" color={colors.primary.base}>
-            HomeAlone
-          </Text>
+          <XStack alignItems="center" gap={8} flex={1}>
+            <Text fontSize={18} fontWeight="900" color="#FFFFFF">
+              HomeAlone
+            </Text>
+            <View
+              backgroundColor={serviceActive ? 'rgba(95,158,122,0.18)' : 'rgba(233,155,74,0.18)'}
+              borderRadius={20}
+              paddingHorizontal={10}
+              paddingVertical={4}
+            >
+              <Text
+                fontSize={11}
+                fontWeight="800"
+                color={serviceActive ? colors.accent.success : colors.secondary.base}
+                textTransform="uppercase"
+              >
+                {serviceActive ? 'Protected' : 'Plan needed'}
+              </Text>
+            </View>
+          </XStack>
           <Button
             size="$2"
-            variant="outlined"
-            borderColor={colors.border}
+            chromeless
+            backgroundColor="rgba(255,255,255,0.08)"
+            borderColor="rgba(255,255,255,0.08)"
+            borderWidth={1}
             onPress={logout}
+            width={36}
             height={36}
             borderRadius={10}
+            paddingHorizontal={0}
           >
-            <Text fontSize={13} fontWeight="600" color={colors.text.secondary}>
-              Log out
+            <Text fontSize={15} fontWeight="900" color="rgba(255,255,255,0.7)">
+              x
             </Text>
           </Button>
         </XStack>
+
+        <XStack alignItems="center" gap={10} marginTop={14}>
+          <View
+            width={10}
+            height={10}
+            borderRadius={5}
+            backgroundColor={serviceActive ? colors.accent.success : colors.secondary.base}
+          />
+          <Text fontSize={13} color="rgba(255,255,255,0.6)" fontWeight="600">
+            {serviceActive ? 'All systems operational' : 'Subscription required'}
+          </Text>
+        </XStack>
+
+        <Text fontSize={activeTab === 'dashboard' ? 26 : 20} lineHeight={activeTab === 'dashboard' ? 32 : 26} fontWeight="900" color="#FFFFFF" marginTop={3}>
+          {activeTab === 'dashboard'
+            ? `Good to see you, ${user?.name || user?.username || 'there'}`
+            : activeLabel}
+        </Text>
+        <Text fontSize={12} color="rgba(255,255,255,0.48)" marginTop={3}>
+          {serviceActive ? 'Your safety monitoring is on.' : 'Subscribe to keep your safety net active.'}
+        </Text>
       </YStack>
 
-      {/* Active tab content */}
-      <View flex={1}>{renderActiveTab()}</View>
+      {needsSubscription ? (
+        <View flex={1}>
+          <SubscriptionScreen />
+        </View>
+      ) : (
+        <>
+          <View flex={1}>{renderActiveTab()}</View>
 
-      {/* Bottom tab bar */}
-      <XStack
-        backgroundColor={colors.bg.card}
-        borderTopWidth={1}
-        borderTopColor={colors.divider}
-        paddingBottom={8}
-        paddingTop={6}
-        paddingHorizontal={4}
-        justifyContent="space-around"
-        alignItems="center"
-      >
-        {PRIMARY_TABS.map((tab) => {
-          const isActive = activeTab === tab.key;
-          return (
-            <TouchableOpacity
-              key={tab.key}
-              onPress={() => handleSelectTab(tab.key)}
-              activeOpacity={0.7}
-              style={{
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                minWidth: 60,
-              }}
-            >
-              <Text
-                fontSize={isActive ? 20 : 18}
-                color={isActive ? colors.primary.base : colors.text.tertiary}
-              >
-                {tab.icon}
-              </Text>
-              <Text
-                fontSize={11}
-                fontWeight={isActive ? '700' : '400'}
-                color={isActive ? colors.primary.base : colors.text.tertiary}
-                marginTop={2}
-              >
-                {tab.label}
-              </Text>
-              {isActive && (
-                <View
-                  position="absolute"
-                  top={-6}
-                  width={20}
-                  height={3}
-                  backgroundColor={colors.primary.base}
-                  borderRadius={2}
-                />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-        <TouchableOpacity
-          onPress={() => setShowMore(true)}
-          activeOpacity={0.7}
-          style={{
-            alignItems: 'center',
-            justifyContent: 'center',
-            paddingHorizontal: 8,
-            paddingVertical: 4,
-            minWidth: 60,
-          }}
-        >
-          <Text
-            fontSize={18}
-            color={showMore ? colors.primary.base : colors.text.tertiary}
+          <XStack
+            backgroundColor={colors.primary.deep}
+            marginHorizontal={12}
+            marginBottom={14}
+            borderRadius={18}
+            paddingBottom={6}
+            paddingTop={8}
+            paddingHorizontal={8}
+            justifyContent="space-around"
+            alignItems="center"
           >
-            {'\u2022\u2022\u2022'}
-          </Text>
-          <Text
-            fontSize={11}
-            fontWeight={showMore ? '700' : '400'}
-            color={showMore ? colors.primary.base : colors.text.tertiary}
-            marginTop={2}
-          >
-            More
-          </Text>
-        </TouchableOpacity>
-      </XStack>
-
-      {/* More modal */}
-      <Modal
-        visible={showMore}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowMore(false)}
-      >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' }}
-          activeOpacity={1}
-          onPress={() => setShowMore(false)}
-        >
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <View
-              backgroundColor={colors.bg.card}
-              borderRadius={20}
-              padding={20}
-              width="80%"
-              maxWidth={320}
-            >
-              <Text fontSize={19} fontWeight="700" color={colors.text.primary} textAlign="center" marginBottom={16}>
-                More
-              </Text>
-              <YStack space={8}>
-                {SECONDARY_TABS.map((tab) => (
-                  <TouchableOpacity
-                    key={tab.key}
-                    onPress={() => handleSelectTab(tab.key)}
-                    activeOpacity={0.7}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      paddingVertical: 12,
-                      paddingHorizontal: 16,
-                      backgroundColor: activeTab === tab.key ? colors.primary.light : 'transparent',
-                      borderRadius: 12,
-                    }}
+            {PRIMARY_TABS.map(tab => {
+              const isActive = activeTab === tab.key;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.75}
+                  style={{
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 8,
+                    paddingVertical: 6,
+                    minWidth: 64,
+                  }}
+                >
+                  <View
+                    width={32}
+                    height={24}
+                    borderRadius={8}
+                    backgroundColor="transparent"
+                    alignItems="center"
+                    justifyContent="center"
                   >
-                    <Text fontSize={18} marginRight={12}>
+                    <Text
+                      fontSize={tab.icon === '$' ? 19 : 20}
+                      fontWeight="800"
+                      color={isActive ? colors.secondary.base : 'rgba(255,255,255,0.35)'}
+                    >
                       {tab.icon}
                     </Text>
-                    <Text fontSize={17} fontWeight="500" color={colors.text.primary}>
-                      {tab.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </YStack>
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+                  </View>
+                  <Text
+                    fontSize={9}
+                    fontWeight={isActive ? '800' : '600'}
+                    color={isActive ? colors.secondary.base : 'rgba(255,255,255,0.35)'}
+                    marginTop={3}
+                    textTransform="uppercase"
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </XStack>
+        </>
+      )}
     </View>
   );
 };

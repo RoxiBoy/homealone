@@ -12,6 +12,8 @@ export type SubscriptionInfo = {
   startDate: string | null;
   endDate: string | null;
   autoRenew: boolean;
+  serviceActive?: boolean;
+  requiresSubscription?: boolean;
 };
 
 type SubscriptionStatusResponse =
@@ -25,6 +27,7 @@ type PaymentContextValue = {
   subscription: SubscriptionInfo | null;
   loading: boolean;
   error: string | null;
+  activateTestSubscription: (plan: 'monthly' | 'yearly') => Promise<void>;
   createCheckoutSession: (plan: 'monthly' | 'yearly') => Promise<string>;
   checkSubscriptionStatus: () => Promise<void>;
   cancelSubscription: (immediately?: boolean) => Promise<void>;
@@ -45,14 +48,26 @@ const normalizeSubscriptionResponse = (
     data !== null &&
     'subscription' in data
   ) {
-    return data.subscription ?? null;
+    const subscription = data.subscription ?? null;
+    return subscription
+      ? {
+          ...subscription,
+          serviceActive: subscription.serviceActive === true,
+          requiresSubscription: subscription.requiresSubscription !== false,
+        }
+      : null;
   }
 
-  return data as SubscriptionInfo;
+  const subscription = data as SubscriptionInfo;
+  return {
+    ...subscription,
+    serviceActive: subscription.serviceActive === true,
+    requiresSubscription: subscription.requiresSubscription !== false,
+  };
 };
 
 export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { token } = useAuth();
+  const { token, updateUser } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +110,36 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setLoading(false);
     }
   }, [token]);
+
+  const activateTestSubscription = useCallback(async (plan: 'monthly' | 'yearly') => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await apiFetch<SubscriptionStatusResponse>('/payments/test-activate', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ plan }),
+      });
+
+      const normalized = normalizeSubscriptionResponse(data);
+      if (normalized) {
+        setSubscription(normalized);
+        await updateUser({
+          serviceActive: normalized.serviceActive === true,
+          requiresSubscription: normalized.requiresSubscription !== false,
+        });
+      } else {
+        await checkSubscriptionStatus();
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to activate subscription';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [checkSubscriptionStatus, token, updateUser]);
 
   const cancelSubscription = useCallback(async (immediately = false) => {
     setLoading(true);
@@ -195,6 +240,7 @@ export const PaymentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         subscription,
         loading,
         error,
+        activateTestSubscription,
         createCheckoutSession,
         checkSubscriptionStatus,
         cancelSubscription,

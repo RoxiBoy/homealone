@@ -1,27 +1,36 @@
 export const colors = {
   bg: {
-    base: '#FAFAF8',
+    base: '#F2F4F8',
     card: '#FFFFFF',
-    subtle: '#F3F2EE',
+    subtle: '#F2F4F8',
+    warm: '#FFF3E6',
+    cool: '#EBF4FA',
   },
   text: {
-    primary: '#2C2C2A',
-    secondary: '#6B6A66',
-    tertiary: '#9B9A96',
+    primary: '#111827',
+    secondary: '#5F6F78',
+    tertiary: '#9CA3AF',
   },
   primary: {
-    base: '#4A7C7A',
-    light: '#E8F1F0',
-    dark: '#3A6563',
+    base: '#4E8FB5',
+    light: '#EBF4FA',
+    dark: '#2C5F7A',
+    deep: '#1A2A36',
+    bright: '#5AA3CC',
+  },
+  secondary: {
+    base: '#E99B4A',
+    light: '#FFF3E6',
+    dark: '#C77C2B',
   },
   accent: {
-    success: '#6B9E6B',
-    warning: '#C4944A',
-    danger: '#B86A6A',
+    success: '#5F9E7A',
+    warning: '#D38B36',
+    danger: '#C96D62',
   },
-  border: '#E2E1DC',
-  divider: '#EEEDE8',
-  overlay: 'rgba(44,44,42,0.55)',
+  border: '#E5DED3',
+  divider: '#E5DED3',
+  overlay: 'rgba(26,42,54,0.52)',
 };
 
 export const spacing = {
@@ -35,12 +44,12 @@ export const spacing = {
 };
 
 export const fontSize = {
-  sm: 13,
-  md: 15,
-  lg: 17,
-  xl: 19,
-  xxl: 22,
-  xxxl: 26,
-  display: 32,
-  hero: 38,
+  sm: 15,
+  md: 17,
+  lg: 19,
+  xl: 21,
+  xxl: 24,
+  xxxl: 28,
+  display: 34,
+  hero: 40,
 };

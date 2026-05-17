@@ -29,23 +29,23 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
 
   return (
     <View flex={1} padding={24} justifyContent="center" backgroundColor={colors.bg.base}>
-      <YStack space={16}>
+      <YStack space={18}>
         <YStack space={4} alignItems="center" marginBottom={8}>
-          <Text fontSize={32} fontWeight="700" color={colors.primary.base}>
+          <Text fontSize={38} fontWeight="900" color={colors.primary.dark}>
             HomeAlone
           </Text>
-          <Text fontSize={15} color={colors.text.secondary}>
-            Your safety companion
+          <Text fontSize={18} color={colors.text.secondary}>
+            A gentle safety check-in app
           </Text>
         </YStack>
 
-        <Text fontSize={19} fontWeight="600" color={colors.text.primary}>
-          Log in
+        <Text fontSize={24} fontWeight="900" color={colors.text.primary}>
+          Log in to continue
         </Text>
 
         {error ? (
           <View backgroundColor="#F5EDE0" borderRadius={10} padding={12} borderWidth={1} borderColor="#E8DCC8">
-            <Text fontSize={13} color={colors.accent.warning}>
+            <Text fontSize={16} color={colors.accent.warning}>
               {error}
             </Text>
           </View>
@@ -56,9 +56,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
-          height={52}
+          height={58}
           borderRadius={12}
-          fontSize={17}
+          fontSize={19}
           borderWidth={1}
           borderColor={colors.border}
           paddingHorizontal={16}
@@ -70,9 +70,9 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          height={52}
+          height={58}
           borderRadius={12}
-          fontSize={17}
+          fontSize={19}
           borderWidth={1}
           borderColor={colors.border}
           paddingHorizontal={16}
@@ -80,7 +80,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
         />
 
         <Button
-          height={52}
+          height={58}
           borderRadius={14}
           backgroundColor={colors.primary.base}
           borderWidth={0}
@@ -88,20 +88,20 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
           disabled={loading}
           opacity={loading ? 0.6 : 1}
         >
-          <Text fontSize={17} fontWeight="600" color="#FFFFFF">
+          <Text fontSize={19} fontWeight="900" color="#FFFFFF">
             {loading ? 'Logging in\u2026' : 'Log in'}
           </Text>
         </Button>
 
         <Button
-          height={52}
+          height={56}
           borderRadius={14}
           backgroundColor="transparent"
           borderWidth={1}
           borderColor={colors.border}
           onPress={onSwitchToRegister}
         >
-          <Text fontSize={15} fontWeight="500" color={colors.text.primary}>
+          <Text fontSize={17} fontWeight="800" color={colors.text.primary}>
             Create an account
           </Text>
         </Button>

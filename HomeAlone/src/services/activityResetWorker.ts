@@ -137,7 +137,6 @@ export async function runActivityResetCheck(
     let usageRecent = false;
     let permissionGranted = false;
     let usageIsNew = true;
-    let usedFallbackSnapshot = false;
 
     if (moduleAvailable) {
       permissionGranted = await hasUsageAccess();
@@ -179,7 +178,6 @@ export async function runActivityResetCheck(
                 return !noise && entryAgeMs < thresholdMs;
               });
               if (fallback) {
-                usedFallbackSnapshot = true;
                 chosenSnapshot = fallback;
                 const fallbackAgeMs = now - fallback.lastTimeUsed;
                 const fallbackPackage = (fallback.packageName || '').toLowerCase();

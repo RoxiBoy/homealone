@@ -2,12 +2,24 @@ const CheckInSession = require('../models/CheckInSession');
 const User = require('../models/User');
 const { initiateEmergencyProtocol } = require('../services/emergencyProtocolService');
 const { armCheckInWindowRespectingSleep } = require('../services/checkInWindowService');
+const {
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('../services/subscriptionAccessService');
 
 exports.startSession = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (!hasActiveSubscription(user)) {
+      clearCheckInSchedule(user);
+      await user.save();
+      return res.status(402).json({
+        message: 'An active subscription is required for HomeAlone monitoring.',
+      });
     }
 
     const intervalHours = user.checkInIntervalHours ?? 2;
@@ -53,6 +65,17 @@ exports.getActiveSession = async (req, res) => {
     }
 
     const now = new Date();
+    const user = await User.findById(req.userId).exec();
+
+    if (user && !hasActiveSubscription(user, now)) {
+      session.status = 'expired';
+      session.resolutionReason = 'suppressed';
+      session.resolvedAt = now;
+      await session.save();
+      clearCheckInSchedule(user);
+      await user.save();
+      return res.status(200).json({ session: null });
+    }
 
     if (session.status === 'pending' && now > session.responseDeadline) {
       await initiateEmergencyProtocol({
@@ -98,8 +121,12 @@ exports.respondOk = async (req, res) => {
     user.lastCheckIn = now;
     user.checkInStatus = 'ok';
 
-    // Schedule the next window and reset hard-deadline cap.
-    armCheckInWindowRespectingSleep(user, now);
+    if (hasActiveSubscription(user, now)) {
+      // Schedule the next window and reset hard-deadline cap.
+      armCheckInWindowRespectingSleep(user, now);
+    } else {
+      clearCheckInSchedule(user);
+    }
 
     await user.save();
 

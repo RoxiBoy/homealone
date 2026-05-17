@@ -7,12 +7,12 @@ type AppCardProps = ViewProps & {
 };
 
 const accentColors = {
-  none: 'transparent',
-  primary: colors.primary.base,
-  success: colors.accent.success,
-  warning: colors.accent.warning,
-  danger: colors.accent.danger,
-  info: '#8A9BB0',
+  none: colors.border,
+  primary: '#D8EAF4',
+  success: '#D6EBDD',
+  warning: '#F5DDB9',
+  danger: '#EBCFCB',
+  info: '#F6D8B8',
 };
 
 export const AppCard: React.FC<AppCardProps> = ({
@@ -25,17 +25,15 @@ export const AppCard: React.FC<AppCardProps> = ({
     backgroundColor={colors.bg.card}
     borderRadius={16}
     borderWidth={1}
-    borderColor={colors.border}
+    borderColor={accentColors[accent]}
     padding={16}
     style={[
       {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 4,
-        elevation: 2,
-        borderLeftWidth: accent !== 'none' ? 3 : 1,
-        borderLeftColor: accent !== 'none' ? accentColors[accent] : colors.border,
+        shadowOpacity: 0.04,
+        shadowRadius: 3,
+        elevation: 1,
       },
       style,
     ]}

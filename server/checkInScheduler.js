@@ -4,6 +4,10 @@ const { sendCheckInNotification } = require('./services/pushService');
 const { initiateEmergencyProtocol } = require('./services/emergencyProtocolService');
 const { getEffectiveDndState } = require('./services/sleepWindowService');
 const { armCheckInWindowRespectingSleep } = require('./services/checkInWindowService');
+const {
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('./services/subscriptionAccessService');
 
 const SCHEDULER_INTERVAL_MS = 5000; // run every 60 seconds
 
@@ -37,6 +41,26 @@ async function schedulerTick() {
 
     for (const user of pendingUsers) {
       try {
+        if (!hasActiveSubscription(user, now)) {
+          const pendingSession = await CheckInSession.findOne({
+            user: user._id,
+            status: 'pending',
+          })
+            .sort({ createdAt: -1 })
+            .exec();
+
+          if (pendingSession) {
+            pendingSession.status = 'expired';
+            pendingSession.resolutionReason = 'suppressed';
+            pendingSession.resolvedAt = now;
+            await pendingSession.save();
+          }
+
+          clearCheckInSchedule(user);
+          await user.save();
+          continue;
+        }
+
         const effectiveState = getEffectiveDndState(user, now);
         if (effectiveState.dndReason !== 'sleep') {
           continue;
@@ -96,6 +120,16 @@ async function schedulerTick() {
         const intervalHours = user.checkInIntervalHours ?? 2;
         const countdownMinutes = user.emergencyCountdownMinutes ?? 2;
 
+        if (!hasActiveSubscription(user, now)) {
+          console.log(
+            '[CheckInScheduler] Subscription inactive - clearing scheduled check-in for user',
+            user._id.toString(),
+          );
+          clearCheckInSchedule(user);
+          await user.save();
+          continue;
+        }
+
         if (!intervalHours || intervalHours <= 0) {
           console.log('[CheckInScheduler] Skipping user', user._id.toString(), 'invalid interval', intervalHours);
           continue;
@@ -120,6 +154,17 @@ async function schedulerTick() {
             armCheckInWindowRespectingSleep(user, now);
           }
 
+          await user.save();
+          continue;
+        }
+
+        if (user.isActive === true) {
+          console.log(
+            '[CheckInScheduler] App active - resetting check-in window for user',
+            user._id.toString(),
+          );
+          user.checkInStatus = 'ok';
+          armCheckInWindowRespectingSleep(user, now);
           await user.save();
           continue;
         }

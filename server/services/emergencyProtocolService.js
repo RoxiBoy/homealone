@@ -5,6 +5,10 @@ const EmergencyAlert = require('../models/EmergencyAlert');
 const { sendSms } = require('./smsService');
 const { placeEmergencyCall } = require('./voiceCallService');
 const { sendEmail } = require('./brevoEmailService');
+const {
+  clearCheckInSchedule,
+  hasActiveSubscription,
+} = require('./subscriptionAccessService');
 async function initiateEmergencyProtocol({
   sessionId,
   userId,
@@ -64,13 +68,7 @@ async function initiateEmergencyProtocol({
     };
   }
 
-  const user = await User.findByIdAndUpdate(
-    userId,
-    {
-      checkInStatus: 'emergency',
-    },
-    { new: true },
-  ).exec();
+  let user = await User.findById(userId).exec();
 
   if (!user) {
     console.log(`${logPrefix} escalated but user not found`);
@@ -81,6 +79,28 @@ async function initiateEmergencyProtocol({
       reason: 'user-not-found',
     };
   }
+
+  if (!hasActiveSubscription(user, now)) {
+    session.status = 'expired';
+    session.resolutionReason = 'suppressed';
+    session.resolvedAt = now;
+    await session.save();
+
+    clearCheckInSchedule(user);
+    await user.save();
+
+    console.log(`${logPrefix} stopped before notifications reason=subscription-inactive`);
+    return {
+      ok: true,
+      escalated: false,
+      session,
+      user,
+      reason: 'subscription-inactive',
+    };
+  }
+
+  user.checkInStatus = 'emergency';
+  await user.save();
 
   const priorityFriend = await Friend.findOne({
     user: userId,

@@ -1,7 +1,7 @@
 const Stripe = require('stripe');
 const config = require('../config/config');
 
-const stripe = new Stripe(config.stripe.secretKey);
+const stripe = config.stripe.secretKey ? new Stripe(config.stripe.secretKey) : null;
 
 const PRICES = {
   monthly: config.stripe.monthlyPriceId,
@@ -18,6 +18,20 @@ function getPlanFromPriceId(priceId) {
   }
 
   return 'monthly';
+}
+
+function assertStripeSecret() {
+  if (!config.stripe.secretKey) {
+    throw new Error('Stripe is not configured. Set STRIPE_SECRET_KEY before starting checkout.');
+  }
+}
+
+function assertStripeConfigured(plan) {
+  assertStripeSecret();
+
+  if (!PRICES[plan]) {
+    throw new Error(`Stripe price is not configured for ${plan}.`);
+  }
 }
 
 async function createOrGetCustomer(user) {
@@ -51,6 +65,8 @@ async function createOrGetCustomer(user) {
 }
 
 async function createCheckoutSession(user, plan) {
+  assertStripeConfigured(plan);
+
   const priceId = PRICES[plan];
   if (!priceId) {
     throw new Error(`Invalid plan: ${plan}`);
@@ -80,16 +96,19 @@ async function createCheckoutSession(user, plan) {
 }
 
 async function getSubscription(subscriptionId) {
+  assertStripeSecret();
   return stripe.subscriptions.retrieve(subscriptionId, {
     expand: ['items.data.price'],
   });
 }
 
 async function getCustomer(customerId) {
+  assertStripeSecret();
   return stripe.customers.retrieve(customerId);
 }
 
 async function cancelSubscription(subscriptionId, immediately = false) {
+  assertStripeSecret();
   if (immediately) {
     return stripe.subscriptions.cancel(subscriptionId);
   }
@@ -100,12 +119,14 @@ async function cancelSubscription(subscriptionId, immediately = false) {
 }
 
 async function reactivateSubscription(subscriptionId) {
+  assertStripeSecret();
   return stripe.subscriptions.update(subscriptionId, {
     cancel_at_period_end: false
   });
 }
 
 async function constructWebhookEvent(payload, signature) {
+  assertStripeSecret();
   return stripe.webhooks.constructEvent(
     payload,
     signature,

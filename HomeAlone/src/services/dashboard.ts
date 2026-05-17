@@ -16,6 +16,8 @@ export type DashboardSubscription = {
   startDate: string | null;
   endDate: string | null;
   autoRenew: boolean;
+  serviceActive?: boolean;
+  requiresSubscription?: boolean;
 };
 
 export type DashboardSettings = {
@@ -41,6 +43,18 @@ export type DashboardStats = {
   totalEmergencies: number;
 };
 
+export type DashboardReferral = {
+  code: string | null;
+  referredBy: string | null;
+  stats: {
+    signups: number;
+    conversions: number;
+    rewardCents: number;
+    rewardDollars: number;
+  };
+  rewardGrantedAt: string | null;
+};
+
 export type DashboardData = {
   user: {
     name?: string;
@@ -51,6 +65,7 @@ export type DashboardData = {
   settings: DashboardSettings;
   contacts: DashboardContact[];
   subscription: DashboardSubscription;
+  referral: DashboardReferral;
   stats: DashboardStats;
 };
 
