@@ -5,6 +5,7 @@
 import { AppRegistry } from 'react-native';
 import messaging from '@react-native-firebase/messaging';
 import notifee, { EventType } from '@notifee/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackgroundFetch from 'react-native-background-fetch';
 import App from './App';
 import { name as appName } from './app.json';
@@ -13,6 +14,8 @@ import {
   showFullScreenCheckInAlert,
 } from './src/services/fullScreenCheckIn';
 import { activityResetHeadlessTask } from './src/services/activityResetWorker';
+
+const PENDING_CHECKIN_KEY = '@homealone/pendingCheckin';
 
 messaging().setBackgroundMessageHandler(async remoteMessage => {
   const type = remoteMessage?.data?.type;
@@ -31,6 +34,10 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
       console.log('[index][bg-message] skipping local full-screen (notification payload already present)');
       return;
     }
+    await AsyncStorage.setItem(
+      PENDING_CHECKIN_KEY,
+      JSON.stringify({ timestamp: Date.now() }),
+    );
     await showFullScreenCheckInAlert(remoteMessage?.data?.sessionId);
     console.log('[index][bg-message] local full-screen check-in alert displayed');
   }
@@ -47,6 +54,10 @@ notifee.onBackgroundEvent(async ({ type, detail }) => {
   );
   if (type === EventType.PRESS && detail.notification?.data?.type === 'checkin') {
     await notifee.cancelNotification(CHECKIN_NOTIFICATION_ID);
+    await AsyncStorage.setItem(
+      PENDING_CHECKIN_KEY,
+      JSON.stringify({ timestamp: Date.now() }),
+    );
     console.log('[index][notifee-bg-event] canceled check-in notification after press');
   }
 });

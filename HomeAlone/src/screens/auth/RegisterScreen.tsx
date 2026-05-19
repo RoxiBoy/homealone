@@ -88,6 +88,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           value={form.username}
           onChangeText={(text) => updateField('username', text)}
           autoCapitalize="none"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -102,6 +104,10 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           value={form.password}
           onChangeText={(text) => updateField('password', text)}
           secureTextEntry
+          textContentType="newPassword"
+          autoComplete="new-password"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -115,6 +121,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           placeholder="Full name"
           value={form.name}
           onChangeText={(text) => updateField('name', text)}
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -130,6 +138,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           onChangeText={(text) => updateField('email', text)}
           autoCapitalize="none"
           keyboardType="email-address"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -144,6 +154,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           value={form.phone}
           onChangeText={(text) => updateField('phone', text)}
           keyboardType="phone-pad"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -161,6 +173,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
             updateField('age', Number.isNaN(numeric) ? 0 : numeric);
           }}
           keyboardType="number-pad"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -176,6 +190,8 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           onChangeText={(text) => updateField('referralCode', text)}
           autoCapitalize="characters"
           autoCorrect={false}
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}

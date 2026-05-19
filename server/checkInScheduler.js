@@ -62,7 +62,7 @@ async function schedulerTick() {
         }
 
         const effectiveState = getEffectiveDndState(user, now);
-        if (effectiveState.dndReason !== 'sleep') {
+        if (effectiveState.effectiveDnd !== true) {
           continue;
         }
 
@@ -80,17 +80,25 @@ async function schedulerTick() {
         }
 
         pendingSession.status = 'expired';
-        pendingSession.resolutionReason = 'sleep_window';
+        pendingSession.resolutionReason =
+          effectiveState.dndReason === 'sleep' ? 'sleep_window' : 'suppressed';
         pendingSession.resolvedAt = now;
         await pendingSession.save();
 
         user.checkInStatus = 'ok';
-        armCheckInWindowRespectingSleep(user, now);
+        if (effectiveState.dndReason === 'sleep') {
+          armCheckInWindowRespectingSleep(user, now);
+        } else {
+          user.nextCheckInAt = null;
+          user.checkInHardDeadlineAt = null;
+        }
         await user.save();
 
         console.log(
-          '[CheckInScheduler] Cancelled pending check-in due to sleep window for user',
+          '[CheckInScheduler] Cancelled pending check-in due to DND for user',
           user._id.toString(),
+          'reason',
+          effectiveState.dndReason,
           'session',
           pendingSession._id.toString(),
         );

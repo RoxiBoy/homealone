@@ -8,17 +8,16 @@ import DashboardTab from '../dashboard/DashboardTab';
 import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
 import SubscriptionScreen from '../subscription/SubscriptionScreen';
-// import TestTab from '../test/TestTab';
+import TestTab from '../test/TestTab';
 
-type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription';
-// type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription' | 'test';
+type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription' | 'test';
 
 const PRIMARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Home', icon: '\u2302' },
   { key: 'emergency', label: 'Contacts', icon: '\u260E' },
   { key: 'settings', label: 'Settings', icon: '\u2699' },
   { key: 'subscription', label: 'Plan', icon: '$' },
-  // { key: 'test', label: 'Test', icon: '~' },
+  { key: 'test', label: 'Test', icon: '~' },
 ];
 
 const MainScreen: React.FC = () => {
@@ -39,8 +38,8 @@ const MainScreen: React.FC = () => {
         return <SettingsTab />;
       case 'subscription':
         return <SubscriptionScreen />;
-      // case 'test':
-      //   return <TestTab />;
+      case 'test':
+        return <TestTab />;
       default:
         return <DashboardTab />;
     }

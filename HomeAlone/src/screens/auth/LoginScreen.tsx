@@ -56,6 +56,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
           value={username}
           onChangeText={setUsername}
           autoCapitalize="none"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}
@@ -70,6 +72,10 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onSwitchToRegister }) => {
           value={password}
           onChangeText={setPassword}
           secureTextEntry
+          textContentType="password"
+          autoComplete="current-password"
+          color={colors.text.primary}
+          placeholderTextColor={colors.text.tertiary}
           height={58}
           borderRadius={12}
           fontSize={19}

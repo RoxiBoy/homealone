@@ -581,6 +581,8 @@ const SettingsTab: React.FC = () => {
                       onChangeText={(text) => setReferralCodeInput(text.toUpperCase())}
                       autoCapitalize="characters"
                       autoCorrect={false}
+                      color={colors.text.primary}
+                      placeholderTextColor={colors.text.tertiary}
                       height={48}
                       borderRadius={12}
                       fontSize={16}

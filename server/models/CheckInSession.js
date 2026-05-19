@@ -15,6 +15,7 @@ const checkInSessionSchema = new mongoose.Schema(
     resolutionReason: {
       type: String,
       enum: [
+        null,
         'ok',
         'manual_emergency',
         'timeout_emergency',

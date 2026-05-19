@@ -120,6 +120,7 @@ exports.respondOk = async (req, res) => {
 
     user.lastCheckIn = now;
     user.checkInStatus = 'ok';
+    user.isActive = true;
 
     if (hasActiveSubscription(user, now)) {
       // Schedule the next window and reset hard-deadline cap.

@@ -182,6 +182,16 @@ export function setupNotificationOpenHandlers() {
           emitCheckInPush();
         }
       }
+      // When fullScreenAction brings the activity to foreground (warm start),
+      // the notification is re-displayed in the foreground context.
+      // This fires emitCheckInPush() in the UI context where the
+      // CheckInContext's onCheckInPush listener is registered.
+      if (type === EventType.DISPLAYED) {
+        const payloadType = detail.notification?.data?.type;
+        if (payloadType === 'checkin') {
+          emitCheckInPush();
+        }
+      }
     });
 
     notifee.getInitialNotification().then((initial: any) => {

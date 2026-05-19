@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, NativeScrollEvent, NativeSyntheticEvent, View as RNView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FlatList, TouchableOpacity, View as RNView } from 'react-native';
 import { View, Text } from 'tamagui';
 import { colors } from '../theme/colors';
 
@@ -12,6 +12,14 @@ type TimerWheelProps = {
 
 const ITEM_HEIGHT = 52;
 const VISIBLE_ITEMS = 5;
+const LOOP_CYCLES = 21;
+const MIDDLE_CYCLE = Math.floor(LOOP_CYCLES / 2);
+
+type TimerWheelItem = {
+  value: number;
+  optionIndex: number;
+  displayIndex: number;
+};
 
 export const TimerWheel: React.FC<TimerWheelProps> = ({
   options,
@@ -19,69 +27,107 @@ export const TimerWheel: React.FC<TimerWheelProps> = ({
   onValueChange,
   formatLabel,
 }) => {
-  const listRef = useRef<FlatList>(null);
+  const listRef = useRef<FlatList<TimerWheelItem>>(null);
+  const getCenteredDisplayIndex = useCallback(
+    (optionIndex: number) => MIDDLE_CYCLE * options.length + optionIndex,
+    [options.length],
+  );
+  const wheelItems = useMemo<TimerWheelItem[]>(
+    () =>
+      Array.from({ length: options.length * LOOP_CYCLES }, (_, displayIndex) => {
+        const optionIndex = displayIndex % options.length;
+        return {
+          value: options[optionIndex],
+          optionIndex,
+          displayIndex,
+        };
+      }),
+    [options],
+  );
   const [selectedIndex, setSelectedIndex] = useState(
     Math.max(0, options.indexOf(value)),
   );
-  const isScrolling = useRef(false);
+  const [selectedDisplayIndex, setSelectedDisplayIndex] = useState(() =>
+    getCenteredDisplayIndex(Math.max(0, options.indexOf(value))),
+  );
+
+  const scrollToIndex = useCallback((index: number, animated = true) => {
+    listRef.current?.scrollToIndex({
+      index,
+      animated,
+      viewPosition: 0.5,
+    });
+  }, []);
 
   useEffect(() => {
     const idx = options.indexOf(value);
-    if (idx >= 0 && idx !== selectedIndex && !isScrolling.current) {
+    if (idx >= 0 && idx !== selectedIndex) {
+      const displayIndex = getCenteredDisplayIndex(idx);
       setSelectedIndex(idx);
-      listRef.current?.scrollToIndex({
-        index: idx,
-        animated: true,
-        viewPosition: 0.5,
-      });
+      setSelectedDisplayIndex(displayIndex);
+      scrollToIndex(displayIndex);
     }
-  }, [options, selectedIndex, value]);
+  }, [getCenteredDisplayIndex, options, scrollToIndex, selectedIndex, value]);
+
+  const selectDisplayIndex = useCallback(
+    (displayIndex: number) => {
+      const item = wheelItems[displayIndex];
+      if (!item) {
+        return;
+      }
+
+      setSelectedIndex(item.optionIndex);
+      setSelectedDisplayIndex(displayIndex);
+      scrollToIndex(displayIndex);
+
+      const nextValue = item.value;
+      if (nextValue !== value) {
+        onValueChange(nextValue);
+      }
+    },
+    [onValueChange, scrollToIndex, value, wheelItems],
+  );
 
   const renderItem = useCallback(
-    ({ item, index }: { item: number; index: number }) => {
-      const isSelected = index === selectedIndex;
-      const distance = Math.abs(index - selectedIndex);
+    ({ item, index }: { item: TimerWheelItem; index: number }) => {
+      const isSelected = index === selectedDisplayIndex;
+      const distance = Math.abs(index - selectedDisplayIndex);
       const scale = isSelected ? 1 : distance === 1 ? 0.8 : 0.65;
       const opacity = isSelected ? 1 : distance === 1 ? 0.5 : 0.25;
 
       return (
-        <RNView
-          style={{
-            height: ITEM_HEIGHT,
-            justifyContent: 'center',
-            alignItems: 'center',
-          }}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityState={{ selected: isSelected }}
+          onPress={() => selectDisplayIndex(index)}
         >
-          <Text
-            fontSize={isSelected ? 24 : distance === 1 ? 18 : 15}
-            fontWeight={isSelected ? '700' : '400'}
-            color={isSelected ? colors.primary.base : colors.text.tertiary}
-            opacity={opacity}
-            transform={[{ scale }]}
+          <RNView
+            style={{
+              height: ITEM_HEIGHT,
+              justifyContent: 'center',
+              alignItems: 'center',
+              marginHorizontal: 8,
+              borderRadius: 12,
+              backgroundColor: isSelected ? colors.primary.base : 'transparent',
+              zIndex: isSelected ? 2 : 0,
+            }}
           >
-            {formatLabel(item)}
-          </Text>
-        </RNView>
+            <Text
+              fontSize={isSelected ? 24 : distance === 1 ? 18 : 15}
+              fontWeight={isSelected ? '700' : '400'}
+              color={isSelected ? '#FFFFFF' : colors.text.tertiary}
+              opacity={opacity}
+              transform={[{ scale }]}
+            >
+              {formatLabel(item.value)}
+            </Text>
+          </RNView>
+        </TouchableOpacity>
       );
     },
-    [selectedIndex, formatLabel],
+    [selectedDisplayIndex, formatLabel, selectDisplayIndex],
   );
-
-  const handleMomentumEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      isScrolling.current = false;
-      const offsetY = e.nativeEvent.contentOffset.y;
-      const index = Math.round(offsetY / ITEM_HEIGHT);
-      const clamped = Math.max(0, Math.min(index, options.length - 1));
-      setSelectedIndex(clamped);
-      onValueChange(options[clamped]);
-    },
-    [options, onValueChange],
-  );
-
-  const handleScrollBegin = useCallback(() => {
-    isScrolling.current = true;
-  }, []);
 
   const getItemLayout = useCallback(
     (_: any, index: number) => ({
@@ -92,7 +138,7 @@ export const TimerWheel: React.FC<TimerWheelProps> = ({
     [],
   );
 
-  const keyExtractor = useCallback((_: number, i: number) => String(i), []);
+  const keyExtractor = useCallback((item: TimerWheelItem) => String(item.displayIndex), []);
 
   const listHeight = ITEM_HEIGHT * VISIBLE_ITEMS;
 
@@ -108,25 +154,29 @@ export const TimerWheel: React.FC<TimerWheelProps> = ({
           height: ITEM_HEIGHT,
           backgroundColor: colors.primary.light,
           borderRadius: 12,
-          zIndex: 1,
-          opacity: 0.5,
+          zIndex: 0,
+          opacity: 0.22,
         }}
       />
       <FlatList
         ref={listRef}
-        data={options}
+        data={wheelItems}
+        extraData={selectedDisplayIndex}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         snapToInterval={ITEM_HEIGHT}
         decelerationRate="fast"
+        scrollEnabled={false}
         showsVerticalScrollIndicator={false}
-        onMomentumScrollEnd={handleMomentumEnd}
-        onScrollBeginDrag={handleScrollBegin}
+        style={{ zIndex: 2 }}
         getItemLayout={getItemLayout}
+        onScrollToIndexFailed={({ index }) => {
+          setTimeout(() => scrollToIndex(index, false), 50);
+        }}
         contentContainerStyle={{
           paddingVertical: ITEM_HEIGHT * 2,
         }}
-        initialScrollIndex={Math.max(0, options.indexOf(value))}
+        initialScrollIndex={selectedDisplayIndex}
       />
     </View>
   );

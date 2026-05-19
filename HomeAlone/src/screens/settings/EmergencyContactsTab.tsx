@@ -289,6 +289,8 @@ const EmergencyContactsTab: React.FC = () => {
                     onChangeText={text => updateFormField('name', text)}
                     placeholder="Full name"
                     autoCapitalize="words"
+                    color={colors.text.primary}
+                    placeholderTextColor={colors.text.tertiary}
                     height={48}
                     borderRadius={10}
                     fontSize={15}
@@ -327,6 +329,8 @@ const EmergencyContactsTab: React.FC = () => {
                       onChangeText={text => updateFormField('phone', text)}
                       placeholder="Phone number"
                       keyboardType="phone-pad"
+                      color={colors.text.primary}
+                      placeholderTextColor={colors.text.tertiary}
                       height={48}
                       borderRadius={10}
                       fontSize={15}
@@ -348,6 +352,8 @@ const EmergencyContactsTab: React.FC = () => {
                     placeholder="Email address"
                     autoCapitalize="none"
                     keyboardType="email-address"
+                    color={colors.text.primary}
+                    placeholderTextColor={colors.text.tertiary}
                     height={48}
                     borderRadius={10}
                     fontSize={15}
@@ -366,6 +372,8 @@ const EmergencyContactsTab: React.FC = () => {
                     value={form.relationship}
                     onChangeText={text => updateFormField('relationship', text)}
                     placeholder="e.g. Family, friend, neighbour"
+                    color={colors.text.primary}
+                    placeholderTextColor={colors.text.tertiary}
                     height={48}
                     borderRadius={10}
                     fontSize={15}
@@ -489,6 +497,8 @@ const EmergencyContactsTab: React.FC = () => {
                 onChangeText={setCountrySearchQuery}
                 autoCapitalize="none"
                 autoCorrect={false}
+                color={colors.text.primary}
+                placeholderTextColor={colors.text.tertiary}
                 height={44}
                 borderRadius={10}
                 fontSize={15}

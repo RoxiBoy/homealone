@@ -118,7 +118,6 @@ const TestTab: React.FC = () => {
         body: JSON.stringify({
           checkInIntervalHours: intervalHours,
           emergencyCountdownMinutes: countdownMinutes,
-          dnd: false,
         }),
       });
 
@@ -184,6 +183,8 @@ const TestTab: React.FC = () => {
                 onChangeText={setIntervalMinutes}
                 keyboardType="numeric"
                 placeholder="e.g. 0.1 (\u2248 6 seconds)"
+                color={colors.text.primary}
+                placeholderTextColor={colors.text.tertiary}
                 height={48}
                 borderRadius={10}
                 fontSize={15}
@@ -203,6 +204,8 @@ const TestTab: React.FC = () => {
                 onChangeText={setCountdownSeconds}
                 keyboardType="numeric"
                 placeholder="e.g. 10"
+                color={colors.text.primary}
+                placeholderTextColor={colors.text.tertiary}
                 height={48}
                 borderRadius={10}
                 fontSize={15}

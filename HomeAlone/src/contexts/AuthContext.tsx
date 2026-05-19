@@ -282,14 +282,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           body: JSON.stringify({ isActive: active }),
         });
         console.log(`[AuthContext][activity] sync success active=${active}`);
-      } catch (e) {
-        console.log('[AuthContext] Failed to sync activity state', e);
-      } finally {
         if (!cancelled) {
           lastReportedActiveRef.current = active;
           updateUser({ isActive: active });
           console.log(`[AuthContext][activity] sync local state updated active=${active}`);
         }
+      } catch (e) {
+        console.log('[AuthContext] Failed to sync activity state', e);
       }
     };
 

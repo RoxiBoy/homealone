@@ -1,11 +1,15 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus, Linking, ScrollView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { View, Text, Button, YStack, XStack } from 'tamagui';
 import { useAuth } from './AuthContext';
 import { apiFetch } from '../config/api';
 import { onCheckInPush } from '../services/checkInEvents';
 import { clearFullScreenCheckInAlert } from '../services/fullScreenCheckIn';
 import { colors } from '../theme/colors';
+
+const PENDING_CHECKIN_KEY = '@homealone/pendingCheckin';
+const PENDING_CHECKIN_TTL_MS = 60_000;
 
 export type CheckInSession = {
   _id: string;
@@ -183,6 +187,23 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [token, handleTimerExpired]);
 
+  const checkPendingCheckin = useCallback(async (): Promise<boolean> => {
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_CHECKIN_KEY);
+      if (!raw) return false;
+
+      await AsyncStorage.removeItem(PENDING_CHECKIN_KEY);
+      const { timestamp } = JSON.parse(raw);
+      if (Date.now() - timestamp < PENDING_CHECKIN_TTL_MS) {
+        fetchActiveSession();
+        return true;
+      }
+    } catch (e) {
+      console.log('[CheckInContext] Error checking pending checkin', e);
+    }
+    return false;
+  }, [fetchActiveSession]);
+
   useEffect(() => {
     if (!token) {
       setActiveSession(null);
@@ -193,15 +214,26 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     fetchActiveSession();
+
+    // On mount, check if a background FCM handler stored a pending checkin flag.
+    // This handles the cold-start case where the app was launched by a
+    // full-screen notification intent and the session may already exist.
+    checkPendingCheckin();
   }, [token, fetchActiveSession]);
 
   useEffect(() => {
     if (!POLL_APP_STATE || !token) return;
 
-    const onChange = (state: AppStateStatus) => {
-      if (state === 'active') {
-        fetchActiveSession();
-      }
+    const onChange = async (state: AppStateStatus) => {
+      if (state !== 'active') return;
+
+      // Check if a background handler stored a pending checkin flag.
+      // This handles the background→foreground transition where the
+      // fullScreenAction may not reliably trigger an AppState change.
+      const handled = await checkPendingCheckin();
+      if (handled) return;
+
+      fetchActiveSession();
     };
 
     const sub = AppState.addEventListener('change', onChange);
