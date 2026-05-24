@@ -22,7 +22,7 @@ const PLAN_COPY: Record<
     title: 'Monthly',
     price: '$10',
     cadence: '/month',
-    description: 'Flexible coverage with the freedom to cancel anytime.',
+    description: 'Flexible coverage with month-to-month billing.',
     highlights: [
       'Full HomeAlone safety monitoring',
       'Emergency contact escalation',
@@ -103,12 +103,12 @@ const SubscriptionScreen: React.FC = () => {
 
   const handleCancel = () => {
     Alert.alert(
-      'Cancel subscription',
-      'Are you sure you want to cancel? Your coverage will remain active until the end of the current billing period.',
+      'Stop subscription',
+      'Are you sure you want to stop your subscription? Your coverage will remain active until the end of the current billing period, then the service will stop.',
       [
         { text: 'Keep subscription', style: 'cancel' },
         {
-          text: 'Cancel subscription',
+          text: 'Stop subscription',
           style: 'destructive',
           onPress: () => cancelSubscription().catch(() => {}),
         },
@@ -160,7 +160,7 @@ const SubscriptionScreen: React.FC = () => {
               A subscription turns on check-ins, emergency contact escalation, and family peace of mind.
             </Text>
             <XStack flexWrap="wrap" gap={8}>
-              {['Smartphone monitoring', 'Contact alerts', 'Cancel anytime'].map(label => (
+              {['Smartphone monitoring', 'Contact alerts'].map(label => (
                 <View
                   key={label}
                   backgroundColor={colors.bg.card}
@@ -248,7 +248,7 @@ const SubscriptionScreen: React.FC = () => {
                     opacity={loading ? 0.6 : 1}
                   >
                     <Text fontSize={15} fontWeight="600" color={colors.accent.danger}>
-                      Cancel subscription
+                      Stop subscription
                     </Text>
                   </Button>
                 ) : null}

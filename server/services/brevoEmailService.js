@@ -5,7 +5,7 @@ const createEmailBody = (senderName, receiverName) => {
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Emergency Check-In</title>
+        <title>HomeAlone Check-In</title>
       </head>
       <body style="margin:0; padding:0; font-family: Arial, Helvetica, sans-serif; background-color:#f4f6f8;">
         <table width="100%" cellpadding="0" cellspacing="0">
@@ -16,7 +16,7 @@ const createEmailBody = (senderName, receiverName) => {
                 <!-- Header -->
                 <tr>
                   <td style="background:#e53935; color:#ffffff; padding:20px; text-align:center;">
-                    <h1 style="margin:0; font-size:22px;">Emergency Check-In</h1>
+                    <h1 style="margin:0; font-size:22px;">HomeAlone Alert</h1>
                   </td>
                 </tr>
 
@@ -28,7 +28,7 @@ const createEmailBody = (senderName, receiverName) => {
                     </p>
 
                     <p style="font-size:16px; line-height:1.5;">
-                      <strong>${senderName}</strong> has triggered an emergency check-in using <strong>HomeAlone</strong>.
+                      <strong>${senderName}</strong> has not responded to a check-in alarm they set for themselves using <strong>HomeAlone</strong>.
                     </p>
 
                     <p style="font-size:16px; line-height:1.5;">
@@ -36,7 +36,7 @@ const createEmailBody = (senderName, receiverName) => {
                     </p>
 
                     <p style="font-size:16px; line-height:1.5;">
-                      Please try to reach out to them as soon as possible.
+                      Please check on them as soon as possible.
                     </p>
 
                     <hr style="border:none; border-top:1px solid #dddddd; margin:24px 0;" />
@@ -51,7 +51,7 @@ const createEmailBody = (senderName, receiverName) => {
                 <!-- Footer -->
                 <tr>
                   <td style="background:#f0f0f0; padding:16px; text-align:center; font-size:12px; color:#777777;">
-                    Sent via HomeAlone • Emergency notification system
+                    Sent via HomeAlone • Check-in alert system
                   </td>
                 </tr>
 
@@ -89,7 +89,7 @@ const sendEmail = async (senderName, receiverName, receiverEmail) => {
                         email: receiverEmail
                     }
                 ],
-                subject: `Emergency alert for ${senderName}`,
+                subject: `HomeAlone alert for ${senderName}`,
                 htmlContent: emailBody
             })
         })

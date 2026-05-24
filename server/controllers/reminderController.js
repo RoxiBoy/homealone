@@ -3,11 +3,11 @@ const Reminder = require('../models/Reminder');
 // Get all reminders for a user
 exports.getReminders = async (req, res) => {
   try {
-    const reminders = await Reminder.find({ 
+    const reminders = await Reminder.find({
       user: req.userId,
       isActive: true,
     });
-    
+
     res.status(200).json(reminders);
   } catch (error) {
     res.status(500).json({
@@ -24,11 +24,11 @@ exports.getReminder = async (req, res) => {
       _id: req.params.id,
       user: req.userId,
     });
-    
+
     if (!reminder) {
       return res.status(404).json({ message: 'Reminder not found' });
     }
-    
+
     res.status(200).json(reminder);
   } catch (error) {
     res.status(500).json({
@@ -45,27 +45,42 @@ exports.createReminder = async (req, res) => {
       title,
       type,
       dosage,
-      frequency,
+      times,
       time,
       date,
       address,
       notes,
     } = req.body;
-    
+
+    if (type === 'Medicine') {
+      if (!times || !Array.isArray(times) || times.length === 0) {
+        return res.status(400).json({ message: 'Medicine reminders require at least one time' });
+      }
+    }
+
+    if (type === 'Checkup') {
+      if (!date) {
+        return res.status(400).json({ message: 'Checkup reminders require a date' });
+      }
+      if (!time) {
+        return res.status(400).json({ message: 'Checkup reminders require a time' });
+      }
+    }
+
     const reminder = new Reminder({
       user: req.userId,
       title,
       type,
       dosage,
-      frequency,
+      times,
       time,
       date,
       address,
       notes,
     });
-    
+
     await reminder.save();
-    
+
     res.status(201).json(reminder);
   } catch (error) {
     res.status(500).json({
@@ -82,20 +97,20 @@ exports.updateReminder = async (req, res) => {
       title,
       type,
       dosage,
-      frequency,
+      times,
       time,
       date,
       address,
       notes,
     } = req.body;
-    
+
     const reminder = await Reminder.findOneAndUpdate(
       { _id: req.params.id, user: req.userId },
       {
         title,
         type,
         dosage,
-        frequency,
+        times,
         time,
         date,
         address,
@@ -103,11 +118,11 @@ exports.updateReminder = async (req, res) => {
       },
       { new: true, runValidators: true }
     );
-    
+
     if (!reminder) {
       return res.status(404).json({ message: 'Reminder not found' });
     }
-    
+
     res.status(200).json(reminder);
   } catch (error) {
     res.status(500).json({
@@ -125,11 +140,11 @@ exports.deleteReminder = async (req, res) => {
       { isActive: false },
       { new: true }
     );
-    
+
     if (!reminder) {
       return res.status(404).json({ message: 'Reminder not found' });
     }
-    
+
     res.status(200).json({ message: 'Reminder deleted successfully' });
   } catch (error) {
     res.status(500).json({

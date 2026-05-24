@@ -9,21 +9,26 @@ import SettingsTab from '../settings/SettingsTab';
 import EmergencyContactsTab from '../settings/EmergencyContactsTab';
 import SubscriptionScreen from '../subscription/SubscriptionScreen';
 import TestTab from '../test/TestTab';
+import ServicesTab from '../services/ServicesTab';
+import ProductsTab from '../products/ProductsTab';
+import RemindersTab from '../reminders/RemindersTab';
+import HamburgerMenu from './HamburgerMenu';
 
-type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription' | 'test';
+type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription' | 'test' | 'services' | 'products' | 'reminders';
 
 const PRIMARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
   { key: 'dashboard', label: 'Home', icon: '\u2302' },
   { key: 'emergency', label: 'Contacts', icon: '\u260E' },
   { key: 'settings', label: 'Settings', icon: '\u2699' },
   { key: 'subscription', label: 'Plan', icon: '$' },
-  { key: 'test', label: 'Test', icon: '~' },
+//  { key: 'test', label: 'Test', icon: '~' },
 ];
 
 const MainScreen: React.FC = () => {
   const { logout, user } = useAuth();
   const { subscription, loading: paymentLoading } = usePayment();
   const [activeTab, setActiveTab] = useState<MainTabKey>('dashboard');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const serviceActive = subscription?.serviceActive ?? user?.serviceActive ?? false;
   const needsSubscription = !paymentLoading && !serviceActive;
@@ -31,7 +36,7 @@ const MainScreen: React.FC = () => {
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab />;
+        return <DashboardTab onNavigate={(tab) => setActiveTab(tab as MainTabKey)} />;
       case 'emergency':
         return <EmergencyContactsTab />;
       case 'settings':
@@ -40,12 +45,23 @@ const MainScreen: React.FC = () => {
         return <SubscriptionScreen />;
       case 'test':
         return <TestTab />;
+      case 'services':
+        return <ServicesTab />;
+      case 'products':
+        return <ProductsTab />;
+      case 'reminders':
+        return <RemindersTab />;
       default:
         return <DashboardTab />;
     }
   };
 
-  const activeLabel = PRIMARY_TABS.find(tab => tab.key === activeTab)?.label || 'Home';
+  const drawerLabels: Record<string, string> = {
+    services: 'Services',
+    products: 'Products',
+    reminders: 'Reminders',
+  };
+  const activeLabel = PRIMARY_TABS.find(tab => tab.key === activeTab)?.label || drawerLabels[activeTab] || 'Home';
 
   return (
     <View flex={1} backgroundColor={colors.bg.base}>
@@ -67,6 +83,15 @@ const MainScreen: React.FC = () => {
       >
         <XStack alignItems="center" justifyContent="space-between">
           <XStack alignItems="center" gap={8} flex={1}>
+            <TouchableOpacity
+              onPress={() => setMenuOpen(true)}
+              activeOpacity={0.7}
+              style={{ paddingRight: 4 }}
+            >
+              <Text fontSize={20} color="rgba(255,255,255,0.8)" fontWeight="700">
+                {'\u2630'}
+              </Text>
+            </TouchableOpacity>
             <Text fontSize={18} fontWeight="900" color="#FFFFFF">
               HomeAlone
             </Text>
@@ -191,6 +216,12 @@ const MainScreen: React.FC = () => {
           </XStack>
         </>
       )}
+
+      <HamburgerMenu
+        visible={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        onNavigate={(key) => setActiveTab(key as MainTabKey)}
+      />
     </View>
   );
 };

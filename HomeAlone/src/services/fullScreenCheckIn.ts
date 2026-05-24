@@ -7,7 +7,7 @@ import notifee, {
 
 // Versioned channel ID forces Android to create a fresh channel with sound settings.
 // Existing channels keep old settings and cannot be mutated reliably.
-const CHECKIN_CHANNEL_ID = 'checkin-alerts-alarm-v2';
+const CHECKIN_CHANNEL_ID = 'checkin-alerts-alarm-v3';
 export const CHECKIN_NOTIFICATION_ID = 'homealone-checkin-alert';
 
 export async function ensureCheckInChannel(): Promise<string> {

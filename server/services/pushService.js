@@ -165,7 +165,77 @@ async function sendTestNotification(user) {
   }
 }
 
+async function sendReminderNotification(user, reminder, context) {
+  if (!user.fcmToken) {
+    console.log('[pushService] User has no fcmToken; skipping reminder notification for', user._id.toString());
+    return;
+  }
+
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  if (!projectId) {
+    console.log('[pushService] FIREBASE_PROJECT_ID not set; cannot send push notification');
+    return;
+  }
+
+  const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
+
+  const isMedicine = reminder.type === 'Medicine';
+  const title = isMedicine
+    ? 'Time for your medication'
+    : context === 'appointment-now'
+      ? 'Appointment time'
+      : 'Upcoming appointment';
+
+  const body = isMedicine
+    ? `${reminder.title}${reminder.dosage ? ` — ${reminder.dosage}` : ''}`
+    : context === 'appointment-now'
+      ? `${reminder.title} is scheduled now${reminder.address ? ` at ${reminder.address}` : ''}`
+      : `Reminder: ${reminder.title}${reminder.date ? ` on ${new Date(reminder.date).toLocaleDateString()}` : ''}`;
+
+  const payload = {
+    message: {
+      token: user.fcmToken,
+      data: {
+        type: 'reminder',
+        reminderId: reminder._id.toString(),
+        reminderType: reminder.type,
+        context: context || 'medicine',
+        title,
+        body,
+      },
+      android: {
+        priority: 'HIGH',
+        ttl: '3600s',
+        direct_boot_ok: true,
+      },
+    },
+  };
+
+  try {
+    const accessToken = await getAccessToken();
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error('[pushService] FCM reminder error', res.status, text);
+    } else {
+      const result = await res.json().catch(() => ({}));
+      console.log('[pushService] Reminder notification sent for', reminder._id.toString(), 'name=', result?.name || 'n/a');
+    }
+  } catch (err) {
+    console.error('[pushService] Error sending reminder notification', err);
+  }
+}
+
 module.exports = {
   sendCheckInNotification,
   sendTestNotification,
+  sendReminderNotification,
 };

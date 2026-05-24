@@ -7,9 +7,9 @@ const buildEmergencyCallTwiml = ({ userName, recipientName }) => {
 
   const greeting = recipientName ? `Hello ${recipientName}. ` : '';
   const message =
-    `${greeting}This is an automated emergency alert from HomeAlone. ` +
-    `Your friend ${userName} may need immediate assistance. ` +
-    `Please try to contact them right away.`;
+    `${greeting}This is an automated alert from HomeAlone. ` +
+    `Your friend ${userName} has not responded to an alarm they set for themselves. ` +
+    `Please check on them as soon as possible.`;
 
   response.say({ voice: 'alice', language: 'en-US' }, message);
   response.pause({ length: 1 });

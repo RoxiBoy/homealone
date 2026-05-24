@@ -3,7 +3,7 @@ const { getTwilioClient } = require('./twilioClient');
 const getFromNumber = () => process.env.TWILIO_PHONE_NO;
 
 const buildEmergencySmsBody = (userName) =>
-  `This is a message from HomeAlone. Your friend ${userName} is in an emergency. Please reach them as soon as possible and help them as you can.`;
+  `This is a message from HomeAlone. Your friend ${userName} has not responded to an alarm they set for themselves. Please check on them asap.`;
 
 const sendSms = async (userName, emergencyContact) => {
   const twilioClient = getTwilioClient();

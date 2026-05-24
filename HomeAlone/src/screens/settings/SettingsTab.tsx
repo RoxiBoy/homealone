@@ -7,14 +7,13 @@ import { apiFetch } from '../../config/api';
 import { AppCard } from '../../components/AppCard';
 import { AppToggle } from '../../components/AppToggle';
 import { AppSectionHeader } from '../../components/AppSectionHeader';
-import { TimerWheel } from '../../components/TimerWheel';
+import { AppCollapsibleSection } from '../../components/AppCollapsibleSection';
 import { colors } from '../../theme/colors';
 
 const ACTIVITY_SETTINGS_KEY = '@homealone/activity-settings';
 
 const CHECK_IN_OPTIONS = [1, 2, 4, 6, 8, 12, 24];
 const COUNTDOWN_OPTIONS = [1, 2, 5, 10, 15, 30, 60];
-const HOUR_OPTIONS = Array.from({ length: 24 }, (_, index) => index);
 
 type DndReason = 'manual' | 'sleep' | null;
 
@@ -351,11 +350,6 @@ const SettingsTab: React.FC = () => {
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 32 }}>
       <YStack padding={16} space={16}>
-        <AppSectionHeader
-          title="Settings"
-          subtitle="Large, simple controls for your safety preferences."
-        />
-
         {notificationsEnabled === false && (
           <AppCard accent="danger">
             <Text fontSize={15} fontWeight="600" color={colors.accent.danger}>
@@ -406,108 +400,264 @@ const SettingsTab: React.FC = () => {
         ) : (
           <>
             {/* Check-in Interval */}
-            <AppSectionHeader
+            <AppCollapsibleSection
               title="Check-in interval"
               subtitle="How long after your last activity we should wait before checking in on you."
-            />
-            <AppCard accent="primary">
-              <Text fontSize={30} fontWeight="900" color={colors.primary.dark} textAlign="center" marginBottom={8}>
-                {formatters.interval(settings.checkInTime)}
-              </Text>
-              <TimerWheel
-                options={CHECK_IN_OPTIONS}
-                value={settings.checkInTime}
-                onValueChange={(val) => updateSettingsPartial({ checkInTime: val })}
-                formatLabel={formatters.interval}
-              />
-            </AppCard>
+            >
+              <AppCard accent="primary">
+                <XStack alignItems="center" justifyContent="space-between" paddingVertical={4}>
+                  <Button
+                    size="$3"
+                    width={52}
+                    height={52}
+                    borderRadius={14}
+                    backgroundColor={colors.bg.base}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    disabled={CHECK_IN_OPTIONS.indexOf(settings.checkInTime) <= 0}
+                    opacity={CHECK_IN_OPTIONS.indexOf(settings.checkInTime) <= 0 ? 0.4 : 1}
+                    onPress={() => {
+                      const idx = CHECK_IN_OPTIONS.indexOf(settings.checkInTime);
+                      if (idx > 0) updateSettingsPartial({ checkInTime: CHECK_IN_OPTIONS[idx - 1] });
+                    }}
+                    paddingHorizontal={0}
+                  >
+                    <Text fontSize={24} fontWeight="700" color={colors.text.primary}>
+                      {'\u2212'}
+                    </Text>
+                  </Button>
+
+                  <YStack alignItems="center" flex={1}>
+                    <Text fontSize={34} fontWeight="900" color={colors.primary.dark} textAlign="center">
+                      {formatters.interval(settings.checkInTime)}
+                    </Text>
+                  </YStack>
+
+                  <Button
+                    size="$3"
+                    width={52}
+                    height={52}
+                    borderRadius={14}
+                    backgroundColor={colors.bg.base}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    disabled={CHECK_IN_OPTIONS.indexOf(settings.checkInTime) >= CHECK_IN_OPTIONS.length - 1}
+                    opacity={CHECK_IN_OPTIONS.indexOf(settings.checkInTime) >= CHECK_IN_OPTIONS.length - 1 ? 0.4 : 1}
+                    onPress={() => {
+                      const idx = CHECK_IN_OPTIONS.indexOf(settings.checkInTime);
+                      if (idx < CHECK_IN_OPTIONS.length - 1) updateSettingsPartial({ checkInTime: CHECK_IN_OPTIONS[idx + 1] });
+                    }}
+                    paddingHorizontal={0}
+                  >
+                    <Text fontSize={24} fontWeight="700" color={colors.text.primary}>
+                      {'+'}
+                    </Text>
+                  </Button>
+                </XStack>
+              </AppCard>
+            </AppCollapsibleSection>
 
             {/* Emergency Countdown */}
-            <AppSectionHeader
+            <AppCollapsibleSection
               title="Emergency countdown"
               subtitle="How long to wait for your response after a check-in before triggering emergency contacts."
-            />
-            <AppCard accent="warning">
-              <Text fontSize={30} fontWeight="900" color={colors.secondary.dark} textAlign="center" marginBottom={8}>
-                {formatters.countdown(settings.countdownTime)}
-              </Text>
-              <TimerWheel
-                options={COUNTDOWN_OPTIONS}
-                value={settings.countdownTime}
-                onValueChange={(val) => updateSettingsPartial({ countdownTime: val })}
-                formatLabel={formatters.countdown}
-              />
-            </AppCard>
+            >
+              <AppCard accent="warning">
+                <XStack alignItems="center" justifyContent="space-between" paddingVertical={4}>
+                  <Button
+                    size="$3"
+                    width={52}
+                    height={52}
+                    borderRadius={14}
+                    backgroundColor={colors.bg.base}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    disabled={COUNTDOWN_OPTIONS.indexOf(settings.countdownTime) <= 0}
+                    opacity={COUNTDOWN_OPTIONS.indexOf(settings.countdownTime) <= 0 ? 0.4 : 1}
+                    onPress={() => {
+                      const idx = COUNTDOWN_OPTIONS.indexOf(settings.countdownTime);
+                      if (idx > 0) updateSettingsPartial({ countdownTime: COUNTDOWN_OPTIONS[idx - 1] });
+                    }}
+                    paddingHorizontal={0}
+                  >
+                    <Text fontSize={24} fontWeight="700" color={colors.text.primary}>
+                      {'\u2212'}
+                    </Text>
+                  </Button>
+
+                  <YStack alignItems="center" flex={1}>
+                    <Text fontSize={34} fontWeight="900" color={colors.secondary.dark} textAlign="center">
+                      {formatters.countdown(settings.countdownTime)}
+                    </Text>
+                  </YStack>
+
+                  <Button
+                    size="$3"
+                    width={52}
+                    height={52}
+                    borderRadius={14}
+                    backgroundColor={colors.bg.base}
+                    borderWidth={1}
+                    borderColor={colors.border}
+                    disabled={COUNTDOWN_OPTIONS.indexOf(settings.countdownTime) >= COUNTDOWN_OPTIONS.length - 1}
+                    opacity={COUNTDOWN_OPTIONS.indexOf(settings.countdownTime) >= COUNTDOWN_OPTIONS.length - 1 ? 0.4 : 1}
+                    onPress={() => {
+                      const idx = COUNTDOWN_OPTIONS.indexOf(settings.countdownTime);
+                      if (idx < COUNTDOWN_OPTIONS.length - 1) updateSettingsPartial({ countdownTime: COUNTDOWN_OPTIONS[idx + 1] });
+                    }}
+                    paddingHorizontal={0}
+                  >
+                    <Text fontSize={24} fontWeight="700" color={colors.text.primary}>
+                      {'+'}
+                    </Text>
+                  </Button>
+                </XStack>
+              </AppCard>
+            </AppCollapsibleSection>
 
             {/* Sleep Timer */}
-            <AppSectionHeader
+            <AppCollapsibleSection
               title="Sleep timer"
               subtitle="Silence check-in alerts automatically while you usually sleep."
-            />
-
-            <AppCard accent="info">
-              <XStack alignItems="center" justifyContent="space-between" marginBottom={12}>
-                <YStack flex={1} marginRight={12}>
-                  <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
-                    Enable sleep timer
-                  </Text>
-                  <Text fontSize={13} color={colors.text.secondary} marginTop={2}>
-                    Timezone: {settings.sleepTimezone}
-                  </Text>
-                </YStack>
-                <AppToggle
-                  checked={settings.sleepTimerEnabled}
-                  onCheckedChange={(val) =>
-                    updateSettingsPartial({
-                      sleepTimerEnabled: val,
-                      sleepTimezone: getDeviceTimezone(),
-                    })
-                  }
-                />
-              </XStack>
-
-              <XStack space={16}>
-                <YStack flex={1} alignItems="center">
-                  <Text fontSize={15} fontWeight="600" color={colors.text.secondary} marginBottom={4}>
-                    Sleep starts
-                  </Text>
-                  <Text fontSize={22} fontWeight="700" color={colors.primary.base}>
-                    {formatHourLabel(settings.sleepStartHour)}
-                  </Text>
-                  <TimerWheel
-                    options={HOUR_OPTIONS}
-                    value={settings.sleepStartHour}
-                    onValueChange={(val) =>
+            >
+              <AppCard accent="info">
+                <XStack alignItems="center" justifyContent="space-between" marginBottom={12}>
+                  <YStack flex={1} marginRight={12}>
+                    <Text fontSize={17} fontWeight="600" color={colors.text.primary}>
+                      Enable sleep timer
+                    </Text>
+                    <Text fontSize={13} color={colors.text.secondary} marginTop={2}>
+                      Timezone: {settings.sleepTimezone}
+                    </Text>
+                  </YStack>
+                  <AppToggle
+                    checked={settings.sleepTimerEnabled}
+                    onCheckedChange={(val) =>
                       updateSettingsPartial({
-                        sleepStartHour: val,
+                        sleepTimerEnabled: val,
                         sleepTimezone: getDeviceTimezone(),
                       })
                     }
-                    formatLabel={formatters.hour}
                   />
-                </YStack>
+                </XStack>
 
-                <YStack flex={1} alignItems="center">
-                  <Text fontSize={15} fontWeight="600" color={colors.text.secondary} marginBottom={4}>
-                    Sleep ends
-                  </Text>
-                  <Text fontSize={22} fontWeight="700" color={colors.primary.base}>
-                    {formatHourLabel(settings.sleepEndHour)}
-                  </Text>
-                  <TimerWheel
-                    options={HOUR_OPTIONS}
-                    value={settings.sleepEndHour}
-                    onValueChange={(val) =>
-                      updateSettingsPartial({
-                        sleepEndHour: val,
-                        sleepTimezone: getDeviceTimezone(),
-                      })
-                    }
-                    formatLabel={formatters.hour}
-                  />
-                </YStack>
-              </XStack>
-            </AppCard>
+                <XStack space={16}>
+                  <YStack flex={1} alignItems="center">
+                    <Text fontSize={15} fontWeight="600" color={colors.text.secondary} marginBottom={8}>
+                      Sleep starts
+                    </Text>
+                    <XStack alignItems="center" space={8}>
+                      <Button
+                        size="$2"
+                        width={40}
+                        height={40}
+                        borderRadius={10}
+                        backgroundColor={colors.bg.base}
+                        borderWidth={1}
+                        borderColor={colors.border}
+                        disabled={settings.sleepStartHour <= 0}
+                        opacity={settings.sleepStartHour <= 0 ? 0.4 : 1}
+                        onPress={() =>
+                          updateSettingsPartial({
+                            sleepStartHour: Math.max(0, settings.sleepStartHour - 1),
+                            sleepTimezone: getDeviceTimezone(),
+                          })
+                        }
+                        paddingHorizontal={0}
+                      >
+                        <Text fontSize={18} fontWeight="700" color={colors.text.primary}>
+                          {'\u2212'}
+                        </Text>
+                      </Button>
+
+                      <Text fontSize={22} fontWeight="700" color={colors.primary.base} minWidth={70} textAlign="center">
+                        {formatHourLabel(settings.sleepStartHour)}
+                      </Text>
+
+                      <Button
+                        size="$2"
+                        width={40}
+                        height={40}
+                        borderRadius={10}
+                        backgroundColor={colors.bg.base}
+                        borderWidth={1}
+                        borderColor={colors.border}
+                        disabled={settings.sleepStartHour >= 23}
+                        opacity={settings.sleepStartHour >= 23 ? 0.4 : 1}
+                        onPress={() =>
+                          updateSettingsPartial({
+                            sleepStartHour: Math.min(23, settings.sleepStartHour + 1),
+                            sleepTimezone: getDeviceTimezone(),
+                          })
+                        }
+                        paddingHorizontal={0}
+                      >
+                        <Text fontSize={18} fontWeight="700" color={colors.text.primary}>
+                          {'+'}
+                        </Text>
+                      </Button>
+                    </XStack>
+                  </YStack>
+
+                  <YStack flex={1} alignItems="center">
+                    <Text fontSize={15} fontWeight="600" color={colors.text.secondary} marginBottom={8}>
+                      Sleep ends
+                    </Text>
+                    <XStack alignItems="center" space={8}>
+                      <Button
+                        size="$2"
+                        width={40}
+                        height={40}
+                        borderRadius={10}
+                        backgroundColor={colors.bg.base}
+                        borderWidth={1}
+                        borderColor={colors.border}
+                        disabled={settings.sleepEndHour <= 0}
+                        opacity={settings.sleepEndHour <= 0 ? 0.4 : 1}
+                        onPress={() =>
+                          updateSettingsPartial({
+                            sleepEndHour: Math.max(0, settings.sleepEndHour - 1),
+                            sleepTimezone: getDeviceTimezone(),
+                          })
+                        }
+                        paddingHorizontal={0}
+                      >
+                        <Text fontSize={18} fontWeight="700" color={colors.text.primary}>
+                          {'\u2212'}
+                        </Text>
+                      </Button>
+
+                      <Text fontSize={22} fontWeight="700" color={colors.primary.base} minWidth={70} textAlign="center">
+                        {formatHourLabel(settings.sleepEndHour)}
+                      </Text>
+
+                      <Button
+                        size="$2"
+                        width={40}
+                        height={40}
+                        borderRadius={10}
+                        backgroundColor={colors.bg.base}
+                        borderWidth={1}
+                        borderColor={colors.border}
+                        disabled={settings.sleepEndHour >= 23}
+                        opacity={settings.sleepEndHour >= 23 ? 0.4 : 1}
+                        onPress={() =>
+                          updateSettingsPartial({
+                            sleepEndHour: Math.min(23, settings.sleepEndHour + 1),
+                            sleepTimezone: getDeviceTimezone(),
+                          })
+                        }
+                        paddingHorizontal={0}
+                      >
+                        <Text fontSize={18} fontWeight="700" color={colors.text.primary}>
+                          {'+'}
+                        </Text>
+                      </Button>
+                    </XStack>
+                  </YStack>
+                </XStack>
+              </AppCard>
+            </AppCollapsibleSection>
 
             {/* Referral */}
             <AppSectionHeader

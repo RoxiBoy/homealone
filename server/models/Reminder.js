@@ -19,12 +19,11 @@ const reminderSchema = new mongoose.Schema(
     dosage: {
       type: String,
     },
-    frequency: {
-      type: String,
+    times: {
+      type: [String],
     },
     time: {
       type: String,
-      required: true,
     },
     date: {
       type: Date,
@@ -38,6 +37,9 @@ const reminderSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+    lastNotifiedAt: {
+      type: Date,
     },
   },
   {

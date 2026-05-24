@@ -1,5 +1,5 @@
 import messaging from '@react-native-firebase/messaging';
-import notifee, { EventType } from '@notifee/react-native';
+import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import { apiFetch } from '../config/api';
 import { emitCheckInPush } from './checkInEvents';
@@ -10,6 +10,28 @@ import {
 } from './fullScreenCheckIn';
 
 let handlersBound = false;
+
+const REMINDER_CHANNEL_ID = 'reminder-alerts';
+
+async function ensureReminderChannel(): Promise<string> {
+  if (Platform.OS !== 'android') {
+    return REMINDER_CHANNEL_ID;
+  }
+
+  try {
+    await notifee.createChannel({
+      id: REMINDER_CHANNEL_ID,
+      name: 'Reminder Alerts',
+      description: 'Medication and appointment reminders',
+      importance: AndroidImportance.DEFAULT,
+      vibration: true,
+    });
+  } catch {
+    // channel may already exist
+  }
+
+  return REMINDER_CHANNEL_ID;
+}
 
 export type InitPushResult = {
   enabled: boolean;
@@ -160,6 +182,40 @@ export function setupNotificationOpenHandlers() {
         android: {
           channelId,
           sound: 'alarm',
+          pressAction: {
+            id: 'default',
+            launchActivity: 'default',
+          },
+        },
+      });
+      return;
+    }
+
+    if (type === 'reminder') {
+      const reminderTitle =
+        typeof remoteMessage.data?.title === 'string'
+          ? remoteMessage.data.title
+          : 'Reminder';
+      const reminderBody =
+        typeof remoteMessage.data?.body === 'string'
+          ? remoteMessage.data.body
+          : '';
+      const reminderType = remoteMessage.data?.reminderType;
+      const context = remoteMessage.data?.context;
+
+      const channelId = await ensureReminderChannel();
+
+      await notifee.displayNotification({
+        title: reminderTitle,
+        body: reminderBody,
+        data: {
+          type: 'reminder',
+          reminderType: reminderType || '',
+          context: context || '',
+        },
+        android: {
+          channelId,
+          smallIcon: 'ic_notification',
           pressAction: {
             id: 'default',
             launchActivity: 'default',

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native';
 import { Text, Input, Button, View, YStack } from 'tamagui';
 import { RegisterPayload, useAuth } from '../../contexts/AuthContext';
 import { colors } from '../../theme/colors';
@@ -20,6 +20,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
     referralCode: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const updateField = <K extends keyof RegisterPayload>(key: K, value: RegisterPayload[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -37,6 +38,11 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
       form.age <= 0
     ) {
       setError('Please fill in all required fields');
+      return;
+    }
+
+    if (!termsAccepted) {
+      setError('Please accept the terms to create an account.');
       return;
     }
 
@@ -201,14 +207,42 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ onSwitchToLogin }) => {
           backgroundColor={colors.bg.card}
         />
 
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => setTermsAccepted((prev) => !prev)}
+          style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}
+        >
+          <View
+            width={24}
+            height={24}
+            borderRadius={6}
+            borderWidth={2}
+            borderColor={termsAccepted ? colors.primary.base : colors.border}
+            backgroundColor={termsAccepted ? colors.primary.base : 'transparent'}
+            alignItems="center"
+            justifyContent="center"
+            marginTop={2}
+          >
+            {termsAccepted ? (
+              <Text fontSize={14} fontWeight="900" color="#FFFFFF">
+                {'\u2713'}
+              </Text>
+            ) : null}
+          </View>
+          <Text fontSize={13} lineHeight={18} color={colors.text.secondary} flex={1}>
+            I understand that HomeAlone is a service in development. I agree to participate in
+            testing the reliability of this product and will not rely on it completely at this time.
+          </Text>
+        </TouchableOpacity>
+
         <Button
           height={58}
           borderRadius={14}
           backgroundColor={colors.primary.base}
           borderWidth={0}
           onPress={handleRegister}
-          disabled={loading}
-          opacity={loading ? 0.6 : 1}
+          disabled={loading || !termsAccepted}
+          opacity={loading || !termsAccepted ? 0.6 : 1}
         >
           <Text fontSize={19} fontWeight="900" color="#FFFFFF">
             {loading ? 'Creating account\u2026' : 'Sign up'}

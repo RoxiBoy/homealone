@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshControl, ScrollView, StyleSheet } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { Button, Text, View, XStack, YStack } from 'tamagui';
 import { useDashboard } from '../../contexts/DashboardContext';
 import { AppCard } from '../../components/AppCard';
@@ -33,7 +33,11 @@ function formatMoney(cents: number) {
   return `$${(Number(cents || 0) / 100).toFixed(0)}`;
 }
 
-const DashboardTab: React.FC = () => {
+type DashboardTabProps = {
+  onNavigate?: (tab: string) => void;
+};
+
+const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
   const { dashboard, loading, refreshing, error, refreshDashboard } = useDashboard();
 
   if (loading && !dashboard) {
@@ -102,152 +106,193 @@ const DashboardTab: React.FC = () => {
         ) : null}
 
         <XStack space={10}>
-          <AppCard flex={1} padding={14}>
-            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-              Check-in every
-            </Text>
-            <Text fontSize={22} lineHeight={28} fontWeight="900" color={colors.text.primary} marginTop={3}>
-              {plural(dashboard.settings.checkInIntervalHours, 'hour')}
-            </Text>
-            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
-              Since last activity
-            </Text>
-          </AppCard>
-          <AppCard flex={1} padding={14}>
-            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-              Respond within
-            </Text>
-            <Text fontSize={22} lineHeight={28} fontWeight="900" color={colors.secondary.base} marginTop={3}>
-              {plural(dashboard.settings.emergencyCountdownMinutes, 'min')}
-            </Text>
-            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
-              Emergency countdown
-            </Text>
-          </AppCard>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('settings')}
+          >
+            <AppCard flex={1} padding={14}>
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Check-in every
+              </Text>
+              <Text fontSize={26} lineHeight={32} fontWeight="900" color={colors.text.primary} marginTop={3}>
+                {plural(dashboard.settings.checkInIntervalHours, 'hour')}
+              </Text>
+              <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+                Since last activity
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('settings')}
+          >
+            <AppCard flex={1} padding={14}>
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Respond within
+              </Text>
+              <Text fontSize={26} lineHeight={32} fontWeight="900" color={colors.secondary.base} marginTop={3}>
+                {plural(dashboard.settings.emergencyCountdownMinutes, 'min')}
+              </Text>
+              <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+                Emergency countdown
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
         </XStack>
 
         <XStack space={10}>
-          <AppCard flex={1} minHeight={112} padding={14}>
-            <View
-              width={30}
-              height={30}
-              borderRadius={8}
-              backgroundColor={colors.primary.light}
-              alignItems="center"
-              justifyContent="center"
-              marginBottom={8}
-            >
-              <Text color={colors.primary.base} fontWeight="900">
-                T
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('settings')}
+          >
+            <AppCard flex={1} minHeight={112} padding={14}>
+              <View
+                width={30}
+                height={30}
+                borderRadius={8}
+                backgroundColor={colors.primary.light}
+                alignItems="center"
+                justifyContent="center"
+                marginBottom={8}
+              >
+                <Text color={colors.primary.base} fontWeight="900">
+                  T
+                </Text>
+              </View>
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Check-in status
               </Text>
-            </View>
-            <Text fontSize={10} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-              Check-in status
-            </Text>
-            <Text fontSize={22} lineHeight={27} fontWeight="900" color={colors.text.primary}>
-              {checkInStatus}
-            </Text>
-            <Text fontSize={12} color={colors.text.secondary} marginTop={2}>
-              {serviceActive ? 'Monitoring active' : 'Plan needed'}
-            </Text>
-          </AppCard>
+              <Text fontSize={26} lineHeight={32} fontWeight="900" color={colors.text.primary}>
+                {checkInStatus}
+              </Text>
+              <Text fontSize={12} color={colors.text.secondary} marginTop={2}>
+                {serviceActive ? 'Monitoring active' : 'Plan needed'}
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
 
-          <AppCard flex={1} minHeight={112} padding={14}>
-            <View
-              width={30}
-              height={30}
-              borderRadius={8}
-              backgroundColor={colors.secondary.light}
-              alignItems="center"
-              justifyContent="center"
-              marginBottom={8}
-            >
-              <Text color={colors.secondary.dark} fontWeight="900">
-                S
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('settings')}
+          >
+            <AppCard flex={1} minHeight={112} padding={14}>
+              <View
+                width={30}
+                height={30}
+                borderRadius={8}
+                backgroundColor={colors.secondary.light}
+                alignItems="center"
+                justifyContent="center"
+                marginBottom={8}
+              >
+                <Text color={colors.secondary.dark} fontWeight="900">
+                  S
+                </Text>
+              </View>
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                DND mode
               </Text>
-            </View>
-            <Text fontSize={10} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-              DND mode
-            </Text>
-            <Text fontSize={22} lineHeight={27} fontWeight="900" color={colors.text.primary}>
-              {dashboard.settings.dnd ? 'On' : 'Off'}
-            </Text>
-            <Text fontSize={12} color={colors.text.secondary} marginTop={2}>
-              {dashboard.settings.dnd ? 'Alerts silenced' : 'Check-ins active'}
-            </Text>
-          </AppCard>
+              <Text fontSize={26} lineHeight={32} fontWeight="900" color={colors.text.primary}>
+                {dashboard.settings.dnd ? 'On' : 'Off'}
+              </Text>
+              <Text fontSize={12} color={colors.text.secondary} marginTop={2}>
+                {dashboard.settings.dnd ? 'Alerts silenced' : 'Check-ins active'}
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
         </XStack>
 
-        <AppCard>
-          <YStack space={12}>
-            <XStack alignItems="center" justifyContent="space-between">
-              <Text fontSize={13} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-                Emergency contact
-              </Text>
-              {primaryContact ? <AppStatusBadge variant="success" label="Ready" /> : null}
-            </XStack>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => onNavigate?.('emergency')}
+        >
+          <AppCard>
+            <YStack space={12}>
+              <XStack alignItems="center" justifyContent="space-between">
+                <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                  Emergency contact
+                </Text>
+                {primaryContact ? <AppStatusBadge variant="success" label="Ready" /> : null}
+              </XStack>
 
-            {primaryContact ? (
-              <>
-                <XStack alignItems="center" space={12}>
-                  <View
-                    width={48}
-                    height={48}
-                    borderRadius={24}
-                    backgroundColor={colors.secondary.light}
-                    justifyContent="center"
-                    alignItems="center"
-                  >
-                    <Text fontSize={22} fontWeight="900" color={colors.secondary.dark}>
-                      {primaryContact.name.charAt(0).toUpperCase()}
-                    </Text>
-                  </View>
-                  <YStack flex={1}>
-                    <Text fontSize={16} fontWeight="900" color={colors.text.primary}>
-                      {primaryContact.name}
-                    </Text>
-                    <Text fontSize={13} color={colors.text.secondary} lineHeight={19}>
-                      Priority {primaryContact.priority} - {`${primaryContact.countryCode || ''}${primaryContact.phone}`}
-                    </Text>
-                    {primaryContact.email ? (
-                      <Text fontSize={13} color={colors.text.secondary} lineHeight={19}>
-                        {primaryContact.email}
+              {primaryContact ? (
+                <>
+                  <XStack alignItems="center" space={12}>
+                    <View
+                      width={48}
+                      height={48}
+                      borderRadius={24}
+                      backgroundColor={colors.secondary.light}
+                      justifyContent="center"
+                      alignItems="center"
+                    >
+                      <Text fontSize={22} fontWeight="900" color={colors.secondary.dark}>
+                        {primaryContact.name.charAt(0).toUpperCase()}
                       </Text>
-                    ) : null}
-                  </YStack>
-                </XStack>
-              </>
-            ) : (
-              <Text fontSize={17} lineHeight={24} color={colors.text.secondary}>
-                Add one trusted contact so alerts have somewhere to go.
-              </Text>
-            )}
-          </YStack>
-        </AppCard>
+                    </View>
+                    <YStack flex={1}>
+                      <Text fontSize={16} fontWeight="900" color={colors.text.primary}>
+                        {primaryContact.name}
+                      </Text>
+                      <Text fontSize={13} color={colors.text.secondary} lineHeight={19}>
+                        Priority {primaryContact.priority} - {`${primaryContact.countryCode || ''}${primaryContact.phone}`}
+                      </Text>
+                      {primaryContact.email ? (
+                        <Text fontSize={13} color={colors.text.secondary} lineHeight={19}>
+                          {primaryContact.email}
+                        </Text>
+                      ) : null}
+                    </YStack>
+                  </XStack>
+                </>
+              ) : (
+                <Text fontSize={17} lineHeight={24} color={colors.text.secondary}>
+                  Add one trusted contact so alerts have somewhere to go.
+                </Text>
+              )}
+            </YStack>
+          </AppCard>
+        </TouchableOpacity>
 
         <XStack space={10}>
-          <AppCard flex={1} padding={14}>
-            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-              Sleep timer
-            </Text>
-            <Text fontSize={16} lineHeight={22} fontWeight="900" color={colors.text.primary} marginTop={3}>
-              {sleepSummary}
-            </Text>
-            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
-              Auto-silenced
-            </Text>
-          </AppCard>
-          <AppCard flex={1} padding={14}>
-            <Text fontSize={11} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-              Referral credit
-            </Text>
-            <Text fontSize={24} lineHeight={30} fontWeight="900" color={colors.secondary.dark} marginTop={2}>
-              {formatMoney(referralCents)}
-            </Text>
-            <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
-              Share to earn $10
-            </Text>
-          </AppCard>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('settings')}
+          >
+            <AppCard flex={1} padding={14}>
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Sleep timer
+              </Text>
+              <Text fontSize={20} lineHeight={26} fontWeight="900" color={colors.text.primary} marginTop={3}>
+                {sleepSummary}
+              </Text>
+              <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+                Auto-silenced
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{ flex: 1 }}
+            activeOpacity={0.7}
+            onPress={() => onNavigate?.('settings')}
+          >
+            <AppCard flex={1} padding={14}>
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Referral credit
+              </Text>
+              <Text fontSize={28} lineHeight={34} fontWeight="900" color={colors.secondary.dark} marginTop={2}>
+                {formatMoney(referralCents)}
+              </Text>
+              <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+                Share to earn $10
+              </Text>
+            </AppCard>
+          </TouchableOpacity>
         </XStack>
 
         <AppCard>
@@ -266,7 +311,7 @@ const DashboardTab: React.FC = () => {
                 </Text>
               </View>
               <YStack flex={1}>
-                <Text fontSize={10} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
                   Recent activity
                 </Text>
                 <XStack alignItems="baseline" justifyContent="space-between">
