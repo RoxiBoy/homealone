@@ -16,14 +16,6 @@ import HamburgerMenu from './HamburgerMenu';
 
 type MainTabKey = 'dashboard' | 'emergency' | 'settings' | 'subscription' | 'test' | 'services' | 'products' | 'reminders';
 
-const PRIMARY_TABS: { key: MainTabKey; label: string; icon: string }[] = [
-  { key: 'dashboard', label: 'Home', icon: '\u2302' },
-  { key: 'emergency', label: 'Contacts', icon: '\u260E' },
-  { key: 'settings', label: 'Settings', icon: '\u2699' },
-  { key: 'subscription', label: 'Plan', icon: '$' },
-//  { key: 'test', label: 'Test', icon: '~' },
-];
-
 const MainScreen: React.FC = () => {
   const { logout, user } = useAuth();
   const { subscription, loading: paymentLoading } = usePayment();
@@ -55,13 +47,6 @@ const MainScreen: React.FC = () => {
         return <DashboardTab />;
     }
   };
-
-  const drawerLabels: Record<string, string> = {
-    services: 'Services',
-    products: 'Products',
-    reminders: 'Reminders',
-  };
-  const activeLabel = PRIMARY_TABS.find(tab => tab.key === activeTab)?.label || drawerLabels[activeTab] || 'Home';
 
   return (
     <View flex={1} backgroundColor={colors.bg.base}>
@@ -136,15 +121,24 @@ const MainScreen: React.FC = () => {
             borderRadius={5}
             backgroundColor={serviceActive ? colors.accent.success : colors.secondary.base}
           />
-          <Text fontSize={13} color="rgba(255,255,255,0.6)" fontWeight="600">
+          <Text fontSize={13} color="rgba(255,255,255,0.6)" fontWeight="600" flex={1}>
             {serviceActive ? 'All systems operational' : 'Subscription required'}
           </Text>
+          {subscription?.endDate ? (
+            <TouchableOpacity
+              onPress={() => setActiveTab('subscription')}
+              activeOpacity={0.7}
+              style={{ paddingLeft: 8 }}
+            >
+              <Text fontSize={11} color="rgba(255,255,255,0.5)" fontWeight="600">
+                expiry {new Date(subscription.endDate).toLocaleDateString()}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
         </XStack>
 
-        <Text fontSize={activeTab === 'dashboard' ? 26 : 20} lineHeight={activeTab === 'dashboard' ? 32 : 26} fontWeight="900" color="#FFFFFF" marginTop={3}>
-          {activeTab === 'dashboard'
-            ? `Good to see you, ${user?.name || user?.username || 'there'}`
-            : activeLabel}
+        <Text fontSize={26} lineHeight={32} fontWeight="900" color="#FFFFFF" marginTop={3}>
+          Good to see you, {user?.name || user?.username || 'there'}
         </Text>
         <Text fontSize={12} color="rgba(255,255,255,0.48)" marginTop={3}>
           {serviceActive ? 'Your safety monitoring is on.' : 'Subscribe to keep your safety net active.'}
@@ -156,65 +150,7 @@ const MainScreen: React.FC = () => {
           <SubscriptionScreen />
         </View>
       ) : (
-        <>
-          <View flex={1}>{renderActiveTab()}</View>
-
-          <XStack
-            backgroundColor={colors.primary.deep}
-            marginHorizontal={12}
-            marginBottom={14}
-            borderRadius={18}
-            paddingBottom={6}
-            paddingTop={8}
-            paddingHorizontal={8}
-            justifyContent="space-around"
-            alignItems="center"
-          >
-            {PRIMARY_TABS.map(tab => {
-              const isActive = activeTab === tab.key;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  onPress={() => setActiveTab(tab.key)}
-                  activeOpacity={0.75}
-                  style={{
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingHorizontal: 8,
-                    paddingVertical: 6,
-                    minWidth: 64,
-                  }}
-                >
-                  <View
-                    width={32}
-                    height={24}
-                    borderRadius={8}
-                    backgroundColor="transparent"
-                    alignItems="center"
-                    justifyContent="center"
-                  >
-                    <Text
-                      fontSize={tab.icon === '$' ? 19 : 20}
-                      fontWeight="800"
-                      color={isActive ? colors.secondary.base : 'rgba(255,255,255,0.35)'}
-                    >
-                      {tab.icon}
-                    </Text>
-                  </View>
-                  <Text
-                    fontSize={9}
-                    fontWeight={isActive ? '800' : '600'}
-                    color={isActive ? colors.secondary.base : 'rgba(255,255,255,0.35)'}
-                    marginTop={3}
-                    textTransform="uppercase"
-                  >
-                    {tab.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </XStack>
-        </>
+        <View flex={1}>{renderActiveTab()}</View>
       )}
 
       <HamburgerMenu

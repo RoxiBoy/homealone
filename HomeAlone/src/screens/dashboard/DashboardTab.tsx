@@ -81,7 +81,6 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
     ? `${formatHour(dashboard.settings.sleepStartHour)} to ${formatHour(dashboard.settings.sleepEndHour)}`
     : 'Off';
   const referralCents = dashboard.referral.stats.rewardCents || 0;
-  const lastOk = formatDateTime(dashboard.stats.lastCheckInOk);
   const checkInStatus = serviceActive ? 'OK' : 'Paused';
 
   return (
@@ -104,6 +103,54 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
             </Text>
           </AppCard>
         ) : null}
+
+        <AppCard>
+          <YStack space={10}>
+            <XStack alignItems="center" justifyContent="space-between">
+              <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
+                Monitoring Activity
+              </Text>
+              <Text fontSize={11} fontWeight="800" color={serviceActive ? colors.accent.success : colors.text.tertiary}>
+                {serviceActive ? 'Live' : 'Paused'}
+              </Text>
+            </XStack>
+
+            <XStack justifyContent="space-between" gap={8}>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={12} fontWeight="900" color={colors.text.primary} textAlign="center" numberOfLines={1}>
+                  {formatDateTime(dashboard.stats.lastAlarmTime)}
+                </Text>
+                <Text fontSize={10} color={colors.text.tertiary} marginTop={2}>
+                  Last alarm
+                </Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={18} fontWeight="900" color={colors.accent.danger}>
+                  {dashboard.stats.totalAlarmsEver}
+                </Text>
+                <Text fontSize={10} color={colors.text.tertiary} marginTop={2}>
+                  Total alarms
+                </Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={12} fontWeight="900" color={colors.text.primary} textAlign="center" numberOfLines={1}>
+                  {formatDateTime(dashboard.stats.lastContactTime)}
+                </Text>
+                <Text fontSize={10} color={colors.text.tertiary} marginTop={2}>
+                  Last contact
+                </Text>
+              </YStack>
+              <YStack alignItems="center" flex={1}>
+                <Text fontSize={18} fontWeight="900" color={colors.accent.danger}>
+                  {dashboard.stats.totalContactCallsEver}
+                </Text>
+                <Text fontSize={10} color={colors.text.tertiary} marginTop={2}>
+                  Total calls
+                </Text>
+              </YStack>
+            </XStack>
+          </YStack>
+        </AppCard>
 
         <XStack space={10}>
           <TouchableOpacity
@@ -148,20 +195,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
             activeOpacity={0.7}
             onPress={() => onNavigate?.('settings')}
           >
-            <AppCard flex={1} minHeight={112} padding={14}>
-              <View
-                width={30}
-                height={30}
-                borderRadius={8}
-                backgroundColor={colors.primary.light}
-                alignItems="center"
-                justifyContent="center"
-                marginBottom={8}
-              >
-                <Text color={colors.primary.base} fontWeight="900">
-                  T
-                </Text>
-              </View>
+            <AppCard flex={1} padding={14}>
               <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
                 Check-in status
               </Text>
@@ -179,20 +213,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
             activeOpacity={0.7}
             onPress={() => onNavigate?.('settings')}
           >
-            <AppCard flex={1} minHeight={112} padding={14}>
-              <View
-                width={30}
-                height={30}
-                borderRadius={8}
-                backgroundColor={colors.secondary.light}
-                alignItems="center"
-                justifyContent="center"
-                marginBottom={8}
-              >
-                <Text color={colors.secondary.dark} fontWeight="900">
-                  S
-                </Text>
-              </View>
+            <AppCard flex={1} padding={14}>
               <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
                 DND mode
               </Text>
@@ -294,65 +315,6 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
             </AppCard>
           </TouchableOpacity>
         </XStack>
-
-        <AppCard>
-          <YStack space={12}>
-            <XStack alignItems="center" gap={12}>
-              <View
-                width={30}
-                height={30}
-                borderRadius={8}
-                backgroundColor={colors.primary.light}
-                alignItems="center"
-                justifyContent="center"
-              >
-                <Text color={colors.primary.base} fontWeight="900">
-                  A
-                </Text>
-              </View>
-              <YStack flex={1}>
-                <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
-                  Recent activity
-                </Text>
-                <XStack alignItems="baseline" justifyContent="space-between">
-                  <Text fontSize={15} fontWeight="900" color={colors.text.primary}>
-                    Active today
-                  </Text>
-                  <Text fontSize={11} fontWeight="800" color={colors.accent.success}>
-                    {serviceActive ? 'Live' : 'Paused'}
-                  </Text>
-                </XStack>
-              </YStack>
-            </XStack>
-
-            <XStack justifyContent="space-between" gap={10}>
-              <YStack alignItems="center" flex={1}>
-                <Text fontSize={14} fontWeight="900" color={colors.text.primary} textAlign="center">
-                  {lastOk}
-                </Text>
-                <Text fontSize={11} color={colors.text.tertiary} marginTop={1}>
-                  Last OK
-                </Text>
-              </YStack>
-              <YStack alignItems="center" flex={1}>
-                <Text fontSize={15} fontWeight="900" color={colors.text.primary}>
-                  {dashboard.stats.totalEmergencies}
-                </Text>
-                <Text fontSize={11} color={colors.text.tertiary} marginTop={1}>
-                  Alerts sent
-                </Text>
-              </YStack>
-              <YStack alignItems="center" flex={1}>
-                <Text fontSize={15} fontWeight="900" color={colors.text.primary}>
-                  {dashboard.stats.totalOkResponses}
-                </Text>
-                <Text fontSize={11} color={colors.text.tertiary} marginTop={1}>
-                  Check-ins answered
-                </Text>
-              </YStack>
-            </XStack>
-          </YStack>
-        </AppCard>
 
         <XStack space={8}>
           <Button

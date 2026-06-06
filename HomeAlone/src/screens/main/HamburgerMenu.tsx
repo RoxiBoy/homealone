@@ -10,9 +10,14 @@ type MenuItem = {
 };
 
 const MENU_ITEMS: MenuItem[] = [
+  { key: 'dashboard', label: 'Home', icon: '\u2302' },
+  { key: 'emergency', label: 'Contacts', icon: '\u260E' },
+  { key: 'settings', label: 'Settings', icon: '\u2699' },
+  { key: 'subscription', label: 'Plan', icon: '$' },
   { key: 'services', label: 'Services', icon: '\uD83D\uDEE0' },
   { key: 'products', label: 'Products', icon: '\uD83D\uDCE6' },
   { key: 'reminders', label: 'Reminders', icon: '\u23F0' },
+  { key: 'test', label: 'Test', icon: '~' },
 ];
 
 type HamburgerMenuProps = {

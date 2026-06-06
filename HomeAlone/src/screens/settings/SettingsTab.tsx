@@ -371,27 +371,35 @@ const SettingsTab: React.FC = () => {
         ) : null}
 
         {/* DND Card */}
-        <AppCard>
-          <XStack alignItems="center" justifyContent="space-between">
-            <YStack flex={1} marginRight={12}>
-              <Text fontSize={19} fontWeight="600" color={colors.text.primary}>
-                Do Not Disturb
-              </Text>
-              <Text fontSize={16} color={colors.text.secondary} marginTop={2}>
-                Temporarily silence all check-in alerts.
-              </Text>
-            </YStack>
-            <AppToggle
-              checked={settings.dnd}
-              onCheckedChange={(val) =>
-                updateSettingsPartial({ dnd: val })
-              }
-            />
-          </XStack>
-          <Text fontSize={15} color={colors.text.tertiary} marginTop={8}>
-            {dndStatusText}
-          </Text>
-        </AppCard>
+        <AppCollapsibleSection
+          title="Do Not Disturb"
+          subtitle="Temporarily silence all check-in alerts."
+        >
+          <AppCard>
+            <XStack alignItems="center" justifyContent="space-between" paddingVertical={4}>
+              <YStack>
+                <Text fontSize={13} color={colors.text.tertiary} textTransform="uppercase" letterSpacing={0.8}>
+                  Status
+                </Text>
+                <Text fontSize={34} fontWeight="900" color={settings.dnd ? colors.accent.warning : colors.accent.success}>
+                  {settings.dnd ? 'On' : 'Off'}
+                </Text>
+                <Text fontSize={12} color={colors.text.secondary} marginTop={1}>
+                  {settings.dnd ? 'Alerts silenced' : 'Check-ins active'}
+                </Text>
+              </YStack>
+              <AppToggle
+                checked={settings.dnd}
+                onCheckedChange={(val) =>
+                  updateSettingsPartial({ dnd: val })
+                }
+              />
+            </XStack>
+            <Text fontSize={15} color={colors.text.tertiary} marginTop={8}>
+              {dndStatusText}
+            </Text>
+          </AppCard>
+        </AppCollapsibleSection>
 
         {loading ? (
           <Text fontSize={15} color={colors.text.secondary} textAlign="center" marginTop={16}>

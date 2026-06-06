@@ -184,12 +184,14 @@ export async function runActivityResetCheck(
                 const fallbackNoise = NOISE_PACKAGE_PATTERNS.some(pattern =>
                   fallbackPackage.includes(pattern),
                 );
+                const fallbackUsageIsNew = !(lastResetMs && fallback.lastTimeUsed <= lastResetMs);
                 usageRecent = !fallbackNoise && fallbackAgeMs < thresholdMs;
+                usageIsNew = fallbackUsageIsNew;
                 usageActive = usageRecent && usageIsNew;
                 console.log(
                   `[activityResetWorker][${attemptId}] fallbackSnapshot package=${fallback.packageName} lastTimeUsed=${new Date(
                     fallback.lastTimeUsed,
-                  ).toISOString()} ageMs=${fallbackAgeMs} usageRecent=${usageRecent} usageIsNew=${usageIsNew}`,
+                  ).toISOString()} ageMs=${fallbackAgeMs} usageRecent=${usageRecent} usageIsNew=${fallbackUsageIsNew}`,
                 );
               }
             }
