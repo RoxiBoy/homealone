@@ -10,6 +10,24 @@ const {
 } = require('./services/subscriptionAccessService');
 
 const SCHEDULER_INTERVAL_MS = 5000; // run every 60 seconds
+const parsedActiveStateFreshMs = Number(process.env.ACTIVE_STATE_FRESH_MS);
+const ACTIVE_STATE_FRESH_MS =
+  Number.isFinite(parsedActiveStateFreshMs) && parsedActiveStateFreshMs > 0
+    ? parsedActiveStateFreshMs
+    : 2 * 60 * 1000;
+
+function isFreshActiveState(user, now) {
+  if (user.isActive !== true || !user.lastActiveAt) {
+    return false;
+  }
+
+  const lastActiveAt = new Date(user.lastActiveAt);
+  if (Number.isNaN(lastActiveAt.getTime())) {
+    return false;
+  }
+
+  return now.getTime() - lastActiveAt.getTime() <= ACTIVE_STATE_FRESH_MS;
+}
 
 async function schedulerTick() {
   const now = new Date();
@@ -166,7 +184,7 @@ async function schedulerTick() {
           continue;
         }
 
-        if (user.isActive === true) {
+        if (isFreshActiveState(user, now)) {
           console.log(
             '[CheckInScheduler] App active - resetting check-in window for user',
             user._id.toString(),
@@ -175,6 +193,17 @@ async function schedulerTick() {
           armCheckInWindowRespectingSleep(user, now);
           await user.save();
           continue;
+        }
+
+        if (user.isActive === true) {
+          console.log(
+            '[CheckInScheduler] Ignoring stale active flag for user',
+            user._id.toString(),
+            'lastActiveAt',
+            user.lastActiveAt ? user.lastActiveAt.toISOString() : 'null',
+          );
+          user.isActive = false;
+          await user.save();
         }
 
         const existingPending = await CheckInSession.findOne({

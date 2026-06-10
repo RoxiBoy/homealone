@@ -3,6 +3,7 @@ import { Alert, ScrollView, Share } from 'react-native';
 import { Text, Button, YStack, XStack, Input } from 'tamagui';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../contexts/AuthContext';
+import { useDashboard } from '../../contexts/DashboardContext';
 import { apiFetch } from '../../config/api';
 import { AppCard } from '../../components/AppCard';
 import { AppToggle } from '../../components/AppToggle';
@@ -123,6 +124,7 @@ const formatMoney = (cents: number) => `$${(Number(cents || 0) / 100).toFixed(0)
 
 const SettingsTab: React.FC = () => {
   const { token, notificationsEnabled, user, updateUser } = useAuth();
+  const { updateDashboardSettings } = useDashboard();
   const [settings, setSettings] = useState<ActivitySettings>({
     ...DEFAULT_SETTINGS,
     dnd: user?.dnd ?? DEFAULT_SETTINGS.dnd,
@@ -225,6 +227,17 @@ const SettingsTab: React.FC = () => {
 
   const persistSettings = async (next: ActivitySettings) => {
     setSettings(next);
+    updateDashboardSettings({
+      checkInIntervalHours: next.checkInTime,
+      emergencyCountdownMinutes: next.countdownTime,
+      dnd: next.dnd,
+      sleepTimerEnabled: next.sleepTimerEnabled,
+      sleepStartHour: next.sleepStartHour,
+      sleepEndHour: next.sleepEndHour,
+      sleepTimezone: next.sleepTimezone || getDeviceTimezone(),
+      effectiveDnd: next.effectiveDnd,
+      dndReason: next.dndReason,
+    });
 
     const localSettings = {
       checkInTime: next.checkInTime,
@@ -272,6 +285,17 @@ const SettingsTab: React.FC = () => {
 
       const merged = buildSettingsFromPayload(updatedUser, next);
       setSettings(merged);
+      updateDashboardSettings({
+        checkInIntervalHours: merged.checkInTime,
+        emergencyCountdownMinutes: merged.countdownTime,
+        dnd: merged.dnd,
+        sleepTimerEnabled: merged.sleepTimerEnabled,
+        sleepStartHour: merged.sleepStartHour,
+        sleepEndHour: merged.sleepEndHour,
+        sleepTimezone: merged.sleepTimezone,
+        effectiveDnd: merged.effectiveDnd,
+        dndReason: merged.dndReason,
+      });
       await updateUser({
         checkInIntervalHours: merged.checkInTime,
         emergencyCountdownMinutes: merged.countdownTime,

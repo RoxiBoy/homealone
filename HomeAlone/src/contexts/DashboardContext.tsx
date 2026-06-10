@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from './AuthContext';
-import { DashboardData, fetchDashboard } from '../services/dashboard';
+import { DashboardData, DashboardSettings, fetchDashboard } from '../services/dashboard';
 
 type DashboardContextValue = {
   dashboard: DashboardData | null;
@@ -15,6 +15,7 @@ type DashboardContextValue = {
   refreshing: boolean;
   error: string | null;
   refreshDashboard: () => Promise<void>;
+  updateDashboardSettings: (patch: Partial<DashboardSettings>) => void;
 };
 
 const DashboardContext = createContext<DashboardContextValue | undefined>(undefined);
@@ -62,6 +63,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await loadDashboard('refresh');
   }, [loadDashboard]);
 
+  const updateDashboardSettings = useCallback((patch: Partial<DashboardSettings>) => {
+    setDashboard(prev => {
+      if (!prev) return prev;
+
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          ...patch,
+        },
+      };
+    });
+  }, []);
+
   useEffect(() => {
     if (!token) {
       setDashboard(null);
@@ -98,6 +113,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         refreshing,
         error,
         refreshDashboard,
+        updateDashboardSettings,
       }}
     >
       {children}

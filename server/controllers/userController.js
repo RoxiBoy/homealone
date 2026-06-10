@@ -384,22 +384,6 @@ exports.resetCheckInWindow = async (req, res) => {
         .json({ ok: false, ignored: true, reason: 'user-in-emergency', requestId });
     }
 
-    const pending = await CheckInSession.findOne({
-      user: req.userId,
-      status: 'pending',
-    })
-      .sort({ createdAt: -1 })
-      .exec();
-
-    if (pending) {
-      console.log(
-        `${logPrefix} ignore reason=pending-session-active sessionId=${pending._id.toString()} responseDeadline=${pending.responseDeadline.toISOString()}`,
-      );
-      return res
-        .status(200)
-        .json({ ok: false, ignored: true, reason: 'pending-session-active', requestId });
-    }
-
     const intervalMs = getIntervalMs(user.checkInIntervalHours);
     if (!intervalMs) {
       console.log(
@@ -435,8 +419,28 @@ exports.resetCheckInWindow = async (req, res) => {
       }
     }
 
+    const pending = await CheckInSession.findOne({
+      user: req.userId,
+      status: 'pending',
+    })
+      .sort({ createdAt: -1 })
+      .exec();
+
     const previousNextCheckInAt = user.nextCheckInAt ? new Date(user.nextCheckInAt) : null;
     const proposedNextCheckInAt = new Date(now.getTime() + intervalMs);
+
+    if (pending) {
+      pending.status = 'ok';
+      pending.resolutionReason = 'ok';
+      pending.resolvedAt = now;
+      await pending.save();
+      user.checkInStatus = 'ok';
+      user.lastCheckIn = now;
+      console.log(
+        `${logPrefix} resolved pending session from activity sessionId=${pending._id.toString()} responseDeadline=${pending.responseDeadline.toISOString()}`,
+      );
+    }
+
     user.nextCheckInAt = proposedNextCheckInAt;
     user.checkInHardDeadlineAt = new Date(proposedNextCheckInAt.getTime() + getHardDeadlineMs());
     if (typeof lastTimeUsed === 'number') {
