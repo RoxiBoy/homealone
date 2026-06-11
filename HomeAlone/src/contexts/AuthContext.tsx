@@ -15,6 +15,13 @@ import {
   ensureUsageAccessOrPrompt,
   runActivityResetCheck,
 } from '../services/activityResetWorker';
+import {
+  setClientLoggerUser,
+  clearClientLoggerUser,
+  initClientLogger,
+} from '../services/clientLogger';
+
+initClientLogger();
 
 export type AuthUser = {
   id: string;
@@ -130,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setToken(storedToken);
           const parsedUser = JSON.parse(storedUser);
           setUser(normalizeUser(parsedUser));
+          setClientLoggerUser(parsedUser.username, storedToken);
 
           // Also initialize push if we restored a session
           try {
@@ -158,6 +166,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setToken(nextToken);
     setUser(normalizedUser);
+    setClientLoggerUser(normalizedUser.username, nextToken);
 
     await Promise.all([
       AsyncStorage.setItem(AUTH_TOKEN_KEY, nextToken),
@@ -182,6 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setNotificationsEnabled(null);
+    clearClientLoggerUser();
 
     await Promise.all([
       AsyncStorage.removeItem(AUTH_TOKEN_KEY),
