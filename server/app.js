@@ -5,6 +5,9 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 require('dotenv').config();
 
+// Patch console.log/warn/error to write to daily server log file
+require('./services/serverLogService');
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');

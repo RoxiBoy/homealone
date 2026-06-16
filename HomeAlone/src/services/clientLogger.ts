@@ -27,6 +27,7 @@ function flushQueue() {
     body: JSON.stringify({
       level: batch.length === 1 ? batch[0].level : 'BATCH',
       message: batch.map(e => `[${e.level}] ${e.message}`).join('\n'),
+      username: currentUsername,
     }),
   }).catch(() => {});
 }
