@@ -203,7 +203,7 @@ export async function runActivityResetCheck(
     }
 
     const active = forceActive || usageRecent;
-    const shouldReset = usageActive;
+    const shouldReset = usageActive || (forceActive && usageRecent);
     console.log(
       `[activityResetWorker][${attemptId}] activeDecision forceActive=${forceActive} usageRecent=${usageRecent} usageIsNew=${usageIsNew} active=${active} shouldReset=${shouldReset}`,
     );
