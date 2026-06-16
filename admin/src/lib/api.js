@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = 'http://3.27.13.168:3000/api';
 
 export async function apiRequest(path, options = {}) {
   const { token, body, headers, ...rest } = options;
