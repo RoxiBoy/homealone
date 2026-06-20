@@ -72,6 +72,10 @@ async function initiateEmergencyProtocol({
 
   if (!user) {
     console.log(`${logPrefix} escalated but user not found`);
+    session.status = 'expired';
+    session.resolutionReason = 'suppressed';
+    session.resolvedAt = now;
+    await session.save();
     return {
       ok: false,
       escalated: true,
@@ -99,24 +103,28 @@ async function initiateEmergencyProtocol({
     };
   }
 
-  user.checkInStatus = 'emergency';
-  await user.save();
-
   const priorityFriend = await Friend.findOne({
     user: userId,
     priority: 1,
   }).exec();
 
   if (!priorityFriend) {
-    console.log(`${logPrefix} escalated but no priority-1 friend configured`);
+    console.log(`${logPrefix} escalated but no priority-1 friend configured — expiring session`);
+    session.status = 'expired';
+    session.resolutionReason = 'suppressed';
+    session.resolvedAt = now;
+    await session.save();
     return {
       ok: true,
-      escalated: true,
+      escalated: false,
       session,
       user,
       reason: 'no-priority-friend',
     };
   }
+
+  user.checkInStatus = 'emergency';
+  await user.save();
 
   const userName = user.name || user.username || 'HomeAlone user';
   const fullPhoneNumber = `${priorityFriend.countryCode || ''}${priorityFriend.phone}`;

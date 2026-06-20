@@ -19,6 +19,7 @@ const checkInSessionSchema = new mongoose.Schema(
         'ok',
         'manual_emergency',
         'timeout_emergency',
+        'activity_reset',
         'sleep_window',
         'suppressed',
       ],

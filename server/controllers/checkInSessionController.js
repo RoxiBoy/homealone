@@ -22,21 +22,40 @@ exports.startSession = async (req, res) => {
       });
     }
 
-    const intervalHours = user.checkInIntervalHours ?? 2;
-    const countdownMinutes = user.emergencyCountdownMinutes ?? 2;
+    // Reject if a pending session already exists (prevents duplicates)
+    const existing = await CheckInSession.findOne({
+      user: req.userId,
+      status: 'pending',
+    }).exec();
 
+    if (existing) {
+      return res.status(409).json({ message: 'A check-in is already in progress' });
+    }
+
+    const countdownMinutes = user.emergencyCountdownMinutes ?? 2;
     const now = new Date();
     const responseDeadline = new Date(now.getTime() + countdownMinutes * 60 * 1000);
+
+    // Atomically claim the user slot to prevent the scheduler from creating a session
+    // between our pending check and session creation.
+    const claimed = await User.findOneAndUpdate(
+      {
+        _id: req.userId,
+        checkInStatus: { $ne: 'pending' },
+      },
+      { $set: { checkInStatus: 'pending' } },
+      { new: true },
+    ).exec();
+
+    if (!claimed) {
+      return res.status(409).json({ message: 'A check-in is already being initialized' });
+    }
 
     const session = await CheckInSession.create({
       user: user._id,
       status: 'pending',
       responseDeadline,
     });
-
-    // Mark user as pending on this check-in
-    user.checkInStatus = 'pending';
-    await user.save();
 
     return res.status(201).json({
       session,
@@ -105,6 +124,14 @@ exports.respondOk = async (req, res) => {
     const session = await CheckInSession.findOne({ _id: id, user: req.userId });
     if (!session) {
       return res.status(404).json({ message: 'Check-in session not found' });
+    }
+
+    // Guard: only pending sessions can be acknowledged
+    if (session.status !== 'pending') {
+      return res.status(409).json({
+        message: 'Session is not in a pending state',
+        currentStatus: session.status,
+      });
     }
 
     const now = new Date();

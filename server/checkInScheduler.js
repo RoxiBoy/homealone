@@ -32,6 +32,16 @@ function isFreshActiveState(user, now) {
 async function schedulerTick() {
   const now = new Date();
   try {
+    // Clear stale isActive flags — app may have crashed while in foreground,
+    // leaving isActive=true with an old timestamp that would suppress check-ins.
+    await User.updateMany(
+      {
+        isActive: true,
+        lastActiveAt: { $lte: new Date(now.getTime() - ACTIVE_STATE_FRESH_MS * 3) },
+      },
+      { $set: { isActive: false } },
+    ).exec();
+
     const overdueSessions = await CheckInSession.find({
       status: 'pending',
       responseDeadline: { $lte: now },
@@ -206,37 +216,53 @@ async function schedulerTick() {
           await user.save();
         }
 
-        const existingPending = await CheckInSession.findOne({
-          user: user._id,
-          status: 'pending',
-        })
-          .sort({ createdAt: -1 })
-          .exec();
-
-        if (existingPending) {
+        // Enforce hard deadline cap — if the absolute max window has passed, reset the clock
+        const nowInner = new Date();
+        if (user.checkInHardDeadlineAt && nowInner > user.checkInHardDeadlineAt) {
           console.log(
-            '[CheckInScheduler] User',
+            '[CheckInScheduler] Hard deadline passed for user',
             user._id.toString(),
-            'already has pending session',
-            existingPending._id.toString(),
-            'skipping new session',
           );
+          user.checkInStatus = 'ok';
+          armCheckInWindowRespectingSleep(user, nowInner);
+          await user.save();
           continue;
         }
 
-        const nowInner = new Date();
         const responseDeadline = new Date(nowInner.getTime() + countdownMinutes * 60 * 1000);
+
+        // Atomically claim the user slot to prevent duplicate sessions from concurrent
+        // scheduler ticks, respondOk, or activity-reset operations.
+        const claimed = await User.findOneAndUpdate(
+          {
+            _id: user._id,
+            checkInStatus: { $ne: 'pending' },
+            nextCheckInAt: { $ne: null, $lte: nowInner },
+          },
+          {
+            $set: {
+              checkInStatus: 'pending',
+              nextCheckInAt: null,
+              checkInHardDeadlineAt: null,
+            },
+          },
+          { new: true },
+        ).exec();
+
+        if (!claimed) {
+          console.log(
+            '[CheckInScheduler] User',
+            user._id.toString(),
+            'already claimed by another process — skipping',
+          );
+          continue;
+        }
 
         const session = await CheckInSession.create({
           user: user._id,
           status: 'pending',
           responseDeadline,
         });
-
-        user.checkInStatus = 'pending';
-        user.nextCheckInAt = null; // next will be scheduled when user confirms OK
-        user.checkInHardDeadlineAt = null;
-        await user.save();
 
         console.log(
           '[CheckInScheduler] Started check-in session',
@@ -259,8 +285,18 @@ async function schedulerTick() {
 }
 
 function startCheckInScheduler() {
-  console.log('[CheckInScheduler] Starting scheduler with interval', SCHEDULER_INTERVAL_MS, 'ms');
-  setInterval(schedulerTick, SCHEDULER_INTERVAL_MS);
+  const startupDelay = Math.floor(Math.random() * SCHEDULER_INTERVAL_MS);
+  console.log(
+    '[CheckInScheduler] Starting scheduler with startup delay',
+    startupDelay,
+    'ms, interval',
+    SCHEDULER_INTERVAL_MS,
+    'ms',
+  );
+  setTimeout(() => {
+    schedulerTick();
+    setInterval(schedulerTick, SCHEDULER_INTERVAL_MS);
+  }, startupDelay);
 }
 
 module.exports = {

@@ -57,32 +57,62 @@ async function sendCheckInNotification(user, session) {
     },
   };
 
-  try {
-    const accessToken = await getAccessToken();
+  const MAX_RETRIES = 2;
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: JSON.stringify(body),
-    });
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const accessToken = await getAccessToken();
 
-    if (!res.ok) {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        console.log(
+          '[pushService] FCM HTTP v1 notification sent for session',
+          session._id.toString(),
+          'name=',
+          payload?.name || 'n/a',
+        );
+        return;
+      }
+
       const text = await res.text();
-      console.error('[pushService] FCM HTTP v1 error', res.status, text);
-    } else {
-      const payload = await res.json().catch(() => ({}));
-      console.log(
-        '[pushService] FCM HTTP v1 notification sent for session',
-        session._id.toString(),
-        'name=',
-        payload?.name || 'n/a',
+      console.error(
+        '[pushService] FCM HTTP v1 error',
+        res.status,
+        text,
+        'attempt',
+        attempt + 1,
+        'of',
+        MAX_RETRIES + 1,
       );
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    } catch (err) {
+      console.error(
+        '[pushService] Error sending FCM HTTP v1 notification',
+        err,
+        'attempt',
+        attempt + 1,
+        'of',
+        MAX_RETRIES + 1,
+      );
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.min(1000 * Math.pow(2, attempt), 4000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
-  } catch (err) {
-    console.error('[pushService] Error sending FCM HTTP v1 notification', err);
   }
 }
 

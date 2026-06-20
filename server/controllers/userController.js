@@ -407,7 +407,7 @@ exports.resetCheckInWindow = async (req, res) => {
       }
     }
 
-    if (typeof lastTimeUsed === 'number' && user.lastUsageResetAt) {
+    if (typeof lastTimeUsed === 'number' && user.lastUsageResetAt && !forceActive) {
       const lastResetMs = user.lastUsageResetAt.getTime();
       if (lastTimeUsed <= lastResetMs) {
         console.log(
@@ -431,7 +431,7 @@ exports.resetCheckInWindow = async (req, res) => {
 
     if (pending) {
       pending.status = 'ok';
-      pending.resolutionReason = 'ok';
+      pending.resolutionReason = 'activity_reset';
       pending.resolvedAt = now;
       await pending.save();
       user.checkInStatus = 'ok';
