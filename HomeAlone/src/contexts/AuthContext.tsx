@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { apiFetch } from '../config/api';
+import { apiFetch, setOnAuthFailure } from '../config/api';
 import { initPush, InitPushResult, setupNotificationOpenHandlers } from '../services/push';
 import {
   configureActivityResetWorker,
@@ -230,8 +230,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const logout = useCallback(async () => {
+    // Notify the server to clear push token and check-in schedule before
+    // clearing local state — prevents orphan push notifications after logout.
+    try {
+      await apiFetch('/auth/logout', { method: 'POST', token });
+    } catch (e) {
+      console.log('[AuthContext] Server logout call failed (non-fatal)', e);
+    }
     await clearSession();
-  }, [clearSession]);
+  }, [token, clearSession]);
+
+  useEffect(() => {
+    if (token) {
+      setOnAuthFailure(() => {
+        logout();
+      });
+    } else {
+      setOnAuthFailure(() => {});
+    }
+  }, [token, logout]);
 
   const updateUser = useCallback(
     async (patch: Partial<AuthUser>) => {

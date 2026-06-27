@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { TouchableOpacity } from 'react-native';
 import { Button, Text, View, XStack, YStack } from 'tamagui';
 import { useAuth } from '../../contexts/AuthContext';
@@ -20,19 +20,35 @@ const MainScreen: React.FC = () => {
   const { logout, user } = useAuth();
   const { subscription, loading: paymentLoading } = usePayment();
   const [activeTab, setActiveTab] = useState<MainTabKey>('dashboard');
+  const [settingsFocusSection, setSettingsFocusSection] = useState<string | undefined>(undefined);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const serviceActive = subscription?.serviceActive ?? user?.serviceActive ?? false;
   const needsSubscription = !paymentLoading && !serviceActive;
 
+  useEffect(() => {
+    if (activeTab !== 'settings') {
+      setSettingsFocusSection(undefined);
+    }
+  }, [activeTab]);
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <DashboardTab onNavigate={(tab) => setActiveTab(tab as MainTabKey)} />;
+        return (
+          <DashboardTab
+            onNavigate={(tab, params) => {
+              if (params?.focusSection) {
+                setSettingsFocusSection(params.focusSection);
+              }
+              setActiveTab(tab as MainTabKey);
+            }}
+          />
+        );
       case 'emergency':
         return <EmergencyContactsTab />;
       case 'settings':
-        return <SettingsTab />;
+        return <SettingsTab initialOpenSection={settingsFocusSection} />;
       case 'subscription':
         return <SubscriptionScreen />;
       case 'test':

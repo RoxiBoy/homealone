@@ -122,7 +122,11 @@ const formatters = {
 
 const formatMoney = (cents: number) => `$${(Number(cents || 0) / 100).toFixed(0)}`;
 
-const SettingsTab: React.FC = () => {
+type SettingsTabProps = {
+  initialOpenSection?: string;
+};
+
+const SettingsTab: React.FC<SettingsTabProps> = ({ initialOpenSection }) => {
   const { token, notificationsEnabled, user, updateUser } = useAuth();
   const { updateDashboardSettings } = useDashboard();
   const [settings, setSettings] = useState<ActivitySettings>({
@@ -398,6 +402,7 @@ const SettingsTab: React.FC = () => {
         <AppCollapsibleSection
           title="Do Not Disturb"
           subtitle="Temporarily silence all check-in alerts."
+          defaultOpen={initialOpenSection === 'dnd'}
         >
           <AppCard>
             <XStack alignItems="center" justifyContent="space-between" paddingVertical={4}>
@@ -435,6 +440,7 @@ const SettingsTab: React.FC = () => {
             <AppCollapsibleSection
               title="Check-in interval"
               subtitle="How long after your last activity we should wait before checking in on you."
+              defaultOpen={initialOpenSection === 'checkin-interval'}
             >
               <AppCard accent="primary">
                 <XStack alignItems="center" justifyContent="space-between" paddingVertical={4}>
@@ -493,6 +499,7 @@ const SettingsTab: React.FC = () => {
             <AppCollapsibleSection
               title="Emergency countdown"
               subtitle="How long to wait for your response after a check-in before triggering emergency contacts."
+              defaultOpen={initialOpenSection === 'countdown'}
             >
               <AppCard accent="warning">
                 <XStack alignItems="center" justifyContent="space-between" paddingVertical={4}>
@@ -551,6 +558,7 @@ const SettingsTab: React.FC = () => {
             <AppCollapsibleSection
               title="Sleep timer"
               subtitle="Silence check-in alerts automatically while you usually sleep."
+              defaultOpen={initialOpenSection === 'sleep'}
             >
               <AppCard accent="info">
                 <XStack alignItems="center" justifyContent="space-between" marginBottom={12}>

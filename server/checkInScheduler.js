@@ -9,7 +9,11 @@ const {
   hasActiveSubscription,
 } = require('./services/subscriptionAccessService');
 
-const SCHEDULER_INTERVAL_MS = 5000; // run every 60 seconds
+const SCHEDULER_INTERVAL_MS = 5000; // run every 5 seconds
+// Grace period (ms) added beyond responseDeadline before the scheduler escalates
+// to emergency. Works together with the client-side overdue window so that a user
+// who just missed the countdown can still respond before contacts are notified.
+const GRACE_PERIOD_MS = 30_000;
 const parsedActiveStateFreshMs = Number(process.env.ACTIVE_STATE_FRESH_MS);
 const ACTIVE_STATE_FRESH_MS =
   Number.isFinite(parsedActiveStateFreshMs) && parsedActiveStateFreshMs > 0
@@ -42,9 +46,10 @@ async function schedulerTick() {
       { $set: { isActive: false } },
     ).exec();
 
+    const graceCutoff = new Date(now.getTime() - GRACE_PERIOD_MS);
     const overdueSessions = await CheckInSession.find({
       status: 'pending',
-      responseDeadline: { $lte: now },
+      responseDeadline: { $lte: graceCutoff },
     }).exec();
 
     for (const session of overdueSessions) {

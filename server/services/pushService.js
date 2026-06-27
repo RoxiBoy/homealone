@@ -41,6 +41,10 @@ async function sendCheckInNotification(user, session) {
   const body = {
     message: {
       token: user.fcmToken,
+      notification: {
+        title: 'HomeAlone check-in',
+        body: 'Are you okay? Tap to respond now.',
+      },
       data: {
         type: 'checkin',
         sessionId: session._id.toString(),
@@ -53,6 +57,15 @@ async function sendCheckInNotification(user, session) {
         ttl: `${ttlSeconds}s`,
         direct_boot_ok: true,
         collapse_key: 'homealone-checkin',
+        notification: {
+          channel_id: 'checkin-alerts-alarm-v3',
+          sound: 'alarm',
+          priority: 'PRIORITY_MAX',
+          visibility: 'PUBLIC',
+          notification_priority: 'PRIORITY_MAX',
+          default_vibrate_timings: true,
+          default_light_settings: true,
+        },
       },
     },
   };

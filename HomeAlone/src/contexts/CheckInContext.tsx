@@ -10,6 +10,7 @@ import { colors } from '../theme/colors';
 
 const PENDING_CHECKIN_KEY = '@homealone/pendingCheckin';
 const PENDING_CHECKIN_TTL_MS = 60_000;
+const OVERDUE_GRACE_MS = 30_000; // seconds before escalating after countdown hits 0
 
 export type CheckInSession = {
   _id: string;
@@ -42,7 +43,10 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [showEmergencyNotice, setShowEmergencyNotice] = useState(false);
   const [showFriendsModal, setShowFriendsModal] = useState(false);
   const [friends, setFriends] = useState<Friend[]>([]);
+  const [isOverdue, setIsOverdue] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const overdueGraceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const overdueStartedRef = useRef(false);
   const activeSessionRef = useRef<CheckInSession | null>(null);
   const tokenRef = useRef<string | null>(null);
 
@@ -63,6 +67,14 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
       intervalRef.current = null;
       console.log('[CheckInContext] Cleared countdown timer');
     }
+  };
+
+  const clearOverdueTimer = () => {
+    if (overdueGraceTimerRef.current) {
+      clearTimeout(overdueGraceTimerRef.current);
+      overdueGraceTimerRef.current = null;
+    }
+    overdueStartedRef.current = false;
   };
 
   const handleTimerExpired = useCallback(async () => {
@@ -125,6 +137,24 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, []);
 
+  const startOverdueGracePeriod = useCallback(() => {
+    if (overdueStartedRef.current) return;
+    overdueStartedRef.current = true;
+
+    console.log('[CheckInContext] ===== OVERDUE GRACE PERIOD STARTED =====');
+    setIsOverdue(true);
+    setCountdownSeconds(null);
+    clearTimer();
+    clearOverdueTimer();
+
+    overdueGraceTimerRef.current = setTimeout(() => {
+      console.log('[CheckInContext] ===== GRACE PERIOD EXPIRED - Escalating =====');
+      overdueStartedRef.current = false;
+      setIsOverdue(false);
+      handleTimerExpired();
+    }, OVERDUE_GRACE_MS);
+  }, [handleTimerExpired]);
+
   const fetchActiveSession = useCallback(async () => {
     if (!token) return;
 
@@ -160,19 +190,19 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.log('[CheckInContext] Starting countdown', remaining, 'seconds');
         setCountdownSeconds(remaining);
         clearTimer();
+        overdueStartedRef.current = false;
+        clearOverdueTimer();
         intervalRef.current = setInterval(() => {
           setCountdownSeconds(prev => {
-            if (prev === null) return null;
-            if (prev <= 1) {
-              console.log('[CheckInContext] ⏰ TIMER EXPIRED - Initiating emergency protocol');
-              clearTimer();
-              // Trigger emergency escalation
-              handleTimerExpired();
-              return 0;
-            }
+            if (prev === null || prev <= 0) return prev;
             return prev - 1;
           });
         }, 1000);
+      } else if (session.status === 'pending') {
+        // Deadline already passed — start the overdue grace period immediately
+        console.log('[CheckInContext] Session pending but deadline passed, starting overdue grace period');
+        clearTimer();
+        startOverdueGracePeriod();
       } else if (session.status === 'emergency') {
         console.log('[CheckInContext] Session already in emergency state');
         setCountdownSeconds(null);
@@ -185,7 +215,15 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error fetching active session', e);
     }
-  }, [token, handleTimerExpired]);
+  }, [token, handleTimerExpired, startOverdueGracePeriod]);
+
+  // When the local countdown reaches 0, transition to the overdue grace period
+  // instead of escalating immediately. The user gets 30 extra seconds to respond.
+  useEffect(() => {
+    if (countdownSeconds !== 0 || overdueStartedRef.current) return;
+    clearTimer();
+    startOverdueGracePeriod();
+  }, [countdownSeconds, startOverdueGracePeriod]);
 
   const checkPendingCheckin = useCallback(async (): Promise<boolean> => {
     try {
@@ -206,9 +244,11 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     if (!token) {
+      clearOverdueTimer();
       setActiveSession(null);
       setCountdownSeconds(null);
       setShowEmergencyNotice(false);
+      setIsOverdue(false);
       clearTimer();
       return;
     }
@@ -253,6 +293,13 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return unsubscribe;
   }, [token, fetchActiveSession]);
 
+  // Cleanup overdue timer on unmount
+  useEffect(() => {
+    return () => {
+      clearOverdueTimer();
+    };
+  }, []);
+
   // Debug: Log when friends modal state changes
   useEffect(() => {
     console.log('[CheckInContext] showFriendsModal changed:', showFriendsModal);
@@ -273,10 +320,12 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error sending OK response', e);
     } finally {
+      clearOverdueTimer();
       clearFullScreenCheckInAlert();
       setActiveSession(null);
       setCountdownSeconds(null);
       setShowEmergencyNotice(false);
+      setIsOverdue(false);
       clearTimer();
     }
   };
@@ -301,8 +350,10 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setFriends(friendsList || []);
       setShowFriendsModal(true);
+      clearOverdueTimer();
       clearFullScreenCheckInAlert();
       setCountdownSeconds(null);
+      setIsOverdue(false);
       clearTimer();
       
       console.log('[CheckInContext] Friends modal should now be visible with', friendsList?.length || 0, 'friends');
@@ -311,7 +362,9 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('[CheckInContext] Error details:', JSON.stringify(err, null, 2));
       setFriends([]);
       setShowFriendsModal(true);
+      clearOverdueTimer();
       clearFullScreenCheckInAlert();
+      setIsOverdue(false);
     }
   };
 
@@ -344,17 +397,20 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error marking session as OK:', e);
     } finally {
+      clearOverdueTimer();
       clearFullScreenCheckInAlert();
       setShowFriendsModal(false);
       setActiveSession(null);
       setCountdownSeconds(null);
       setShowEmergencyNotice(false);
+      setIsOverdue(false);
       clearTimer();
     }
   };
 
   const handleClearEmergency = async () => {
     if (!token) {
+      clearOverdueTimer();
       clearFullScreenCheckInAlert();
       setShowEmergencyNotice(false);
       setActiveSession(null);
@@ -373,10 +429,12 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch (e) {
       console.log('[CheckInContext] Error clearing emergency status', e);
     } finally {
+      clearOverdueTimer();
       clearFullScreenCheckInAlert();
       setShowEmergencyNotice(false);
       setActiveSession(null);
       setCountdownSeconds(null);
+      setIsOverdue(false);
       clearTimer();
     }
   };
@@ -387,17 +445,18 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const showCheckInPrompt =
-    !!activeSession &&
-    activeSession.status === 'pending' &&
-    !showFriendsModal &&
-    !notificationsSilenced;
+    isOverdue ||
+    (!!activeSession &&
+      activeSession.status === 'pending' &&
+      !showFriendsModal &&
+      !notificationsSilenced);
 
   return (
     <CheckInContext.Provider value={value}>
       {children}
 
       {/* Full-screen check-in alert */}
-      {showCheckInPrompt && countdownSeconds !== null && (
+      {(showCheckInPrompt && (countdownSeconds !== null || isOverdue)) && (
         <View
           position="absolute"
           top={0}
@@ -425,14 +484,22 @@ export const CheckInProvider: React.FC<{ children: React.ReactNode }> = ({ child
               Are you okay?
             </Text>
             <Text fontSize={18} lineHeight={25} color={colors.text.secondary} textAlign="center">
-              Please confirm your safety.
+              {isOverdue ? 'Your check-in is overdue! Please respond now.' : 'Please confirm your safety.'}
             </Text>
-            <Text fontSize={44} fontWeight="900" textAlign="center" color={colors.secondary.dark}>
-              {countdownSeconds}s
-            </Text>
-            <Text fontSize={15} color={colors.text.tertiary} textAlign="center" marginTop={-8}>
-              time remaining
-            </Text>
+            {isOverdue ? (
+              <Text fontSize={22} fontWeight="900" textAlign="center" color={colors.accent.danger}>
+                OVERDUE
+              </Text>
+            ) : (
+              <>
+                <Text fontSize={44} fontWeight="900" textAlign="center" color={colors.secondary.dark}>
+                  {countdownSeconds}s
+                </Text>
+                <Text fontSize={15} color={colors.text.tertiary} textAlign="center" marginTop={-8}>
+                  time remaining
+                </Text>
+              </>
+            )}
 
             <YStack space={10} marginTop={8}>
               <Button

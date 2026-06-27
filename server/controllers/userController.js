@@ -550,20 +550,10 @@ exports.sendTestNotification = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    const effectiveState = getEffectiveDndState(user);
-
     if (!hasActiveSubscription(user)) {
       return res.status(402).json({
         message: 'An active subscription is required to send HomeAlone notifications.',
       });
-    }
-
-    if (effectiveState.effectiveDnd === true) {
-      const reason =
-        effectiveState.dndReason === 'sleep'
-          ? 'Notifications are currently silenced by the sleep timer'
-          : 'Notifications are currently silenced (DND enabled)';
-      return res.status(200).json({ message: reason });
     }
 
     const result = await sendTestNotification(user);

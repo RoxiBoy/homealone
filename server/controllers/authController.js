@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const CheckInSession = require('../models/CheckInSession');
 const {
   armCheckInWindowRespectingSleep,
   getHardDeadlineMs,
@@ -174,4 +175,46 @@ exports.login = async (req, res) => {
         error: error.message,
         });
     }
+};
+
+// Logout user — clears server-side session state so the scheduler stops and push tokens are removed.
+exports.logout = async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Expire any pending check-in session
+    const pendingSession = await CheckInSession.findOne({
+      user: user._id,
+      status: 'pending',
+    })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    if (pendingSession) {
+      pendingSession.status = 'expired';
+      pendingSession.resolutionReason = 'user_logout';
+      pendingSession.resolvedAt = new Date();
+      await pendingSession.save();
+    }
+
+    // Clear scheduling and push state so the scheduler won't fire new check-ins
+    user.nextCheckInAt = null;
+    user.checkInHardDeadlineAt = null;
+    user.checkInStatus = 'ok';
+    user.isActive = false;
+    user.lastActiveAt = null;
+    user.fcmToken = null;
+
+    await user.save();
+
+    return res.status(200).json({ message: 'Logged out successfully' });
+  } catch (error) {
+    return res.status(500).json({
+      message: 'Error logging out',
+      error: error.message,
+    });
+  }
 };

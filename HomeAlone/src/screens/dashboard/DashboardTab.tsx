@@ -34,7 +34,7 @@ function formatMoney(cents: number) {
 }
 
 type DashboardTabProps = {
-  onNavigate?: (tab: string) => void;
+  onNavigate?: (tab: string, params?: Record<string, string>) => void;
 };
 
 const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
@@ -156,7 +156,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={0.7}
-            onPress={() => onNavigate?.('settings')}
+            onPress={() => onNavigate?.('settings', { focusSection: 'checkin-interval' })}
           >
             <AppCard flex={1} padding={14}>
               <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
@@ -173,7 +173,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={0.7}
-            onPress={() => onNavigate?.('settings')}
+            onPress={() => onNavigate?.('settings', { focusSection: 'countdown' })}
           >
             <AppCard flex={1} padding={14}>
               <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
@@ -211,7 +211,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={0.7}
-            onPress={() => onNavigate?.('settings')}
+            onPress={() => onNavigate?.('settings', { focusSection: 'dnd' })}
           >
             <AppCard flex={1} padding={14}>
               <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>
@@ -283,7 +283,7 @@ const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigate }) => {
           <TouchableOpacity
             style={{ flex: 1 }}
             activeOpacity={0.7}
-            onPress={() => onNavigate?.('settings')}
+            onPress={() => onNavigate?.('settings', { focusSection: 'sleep' })}
           >
             <AppCard flex={1} padding={14}>
               <Text fontSize={14} fontWeight="800" textTransform="uppercase" color={colors.text.tertiary}>

@@ -7,6 +7,11 @@ const {
   hasActiveSubscription,
 } = require('../services/subscriptionAccessService');
 
+// Grace period (ms) added beyond responseDeadline before escalating to emergency.
+// Gives offline users or late responders a brief window to still submit "I'm OK"
+// before contacts are notified.
+const GRACE_PERIOD_MS = 30_000;
+
 exports.startSession = async (req, res) => {
   try {
     const user = await User.findById(req.userId);
@@ -96,7 +101,7 @@ exports.getActiveSession = async (req, res) => {
       return res.status(200).json({ session: null });
     }
 
-    if (session.status === 'pending' && now > session.responseDeadline) {
+    if (session.status === 'pending' && now.getTime() >= session.responseDeadline.getTime() + GRACE_PERIOD_MS) {
       await initiateEmergencyProtocol({
         sessionId: session._id,
         userId: req.userId,

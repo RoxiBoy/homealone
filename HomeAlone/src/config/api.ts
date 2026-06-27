@@ -5,6 +5,14 @@ export type ApiFetchOptions = RequestInit & {
   token?: string | null;
 };
 
+let _onAuthFailure: (() => void) | null = null;
+let _isHandlingAuthFailure = false;
+
+export function setOnAuthFailure(cb: () => void) {
+  _onAuthFailure = cb;
+  _isHandlingAuthFailure = false;
+}
+
 export async function apiFetch<T>(
   path: string,
   options: ApiFetchOptions = {},
@@ -28,6 +36,13 @@ export async function apiFetch<T>(
     data = await response.json();
   } catch {
     // ignore JSON parse errors for empty responses
+  }
+
+  if (response.status === 401 && _onAuthFailure && !_isHandlingAuthFailure && !path.startsWith('/auth/')) {
+    _isHandlingAuthFailure = true;
+    setTimeout(() => {
+      _onAuthFailure!();
+    }, 0);
   }
 
   if (!response.ok) {
