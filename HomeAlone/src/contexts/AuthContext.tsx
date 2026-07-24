@@ -17,6 +17,7 @@ import {
 } from '../services/activityResetWorker';
 import { clearFullScreenCheckInAlert } from '../services/fullScreenCheckIn';
 
+
 export type AuthUser = {
   id: string;
   username: string;
