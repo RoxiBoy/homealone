@@ -6,11 +6,10 @@ const {
   clearCheckInSchedule,
   hasActiveSubscription,
 } = require('../services/subscriptionAccessService');
+const { buildUserResponse } = require('../services/userResponseService');
+const { GRACE_PERIOD_MS } = require('../config/constants');
 
 // Grace period (ms) added beyond responseDeadline before escalating to emergency.
-// Gives offline users or late responders a brief window to still submit "I'm OK"
-// before contacts are notified.
-const GRACE_PERIOD_MS = 30_000;
 
 exports.startSession = async (req, res) => {
   try {
@@ -163,7 +162,7 @@ exports.respondOk = async (req, res) => {
 
     await user.save();
 
-    return res.status(200).json({ session, user });
+    return res.status(200).json({ session, user: buildUserResponse(user, now) });
   } catch (error) {
     console.error('[checkInSessionController.respondOk] error', error);
     return res.status(500).json({
@@ -195,7 +194,7 @@ exports.respondEmergency = async (req, res) => {
       result.user ||
       (await User.findById(req.userId).select('-password'));
 
-    return res.status(200).json({ session: updatedSession, user });
+    return res.status(200).json({ session: updatedSession, user: buildUserResponse(user) });
   } catch (error) {
     console.error('[checkInSessionController.respondEmergency] error', error);
     return res.status(500).json({

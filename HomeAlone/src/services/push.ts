@@ -10,6 +10,7 @@ import {
 } from './fullScreenCheckIn';
 
 let handlersBound = false;
+let currentAuthToken: string | null = null;
 
 const REMINDER_CHANNEL_ID = 'reminder-alerts';
 
@@ -61,6 +62,8 @@ export async function initPush(token: string | null): Promise<InitPushResult> {
     return { enabled: false, reason: 'no-token' };
   }
 
+  currentAuthToken = token;
+
   const m = getMessagingSafe();
   if (!m) {
     return { enabled: false, reason: 'native-module-unavailable' };
@@ -103,7 +106,7 @@ export async function initPush(token: string | null): Promise<InitPushResult> {
       try {
         await apiFetch('/users/device-token', {
           method: 'PUT',
-          token,
+          token: currentAuthToken,
           body: JSON.stringify({ fcmToken: newToken }),
         });
       } catch (e) {
@@ -161,8 +164,12 @@ export function setupNotificationOpenHandlers() {
         typeof remoteMessage.data?.sessionId === 'string'
           ? remoteMessage.data.sessionId
           : undefined;
+      const alarmRingSeconds = Number(remoteMessage.data?.alarmRingSeconds);
+      const alarmRingMs = Number.isFinite(alarmRingSeconds)
+        ? alarmRingSeconds * 1000
+        : undefined;
       // Foreground does not auto-show FCM notifications on Android; show explicit full-screen alert.
-      await showFullScreenCheckInAlert(sessionId);
+      await showFullScreenCheckInAlert(sessionId, { alarmRingMs });
       // Notify CheckInContext so it can fetch the active session and show the in-app
       // "Are you okay?" modal.
       emitCheckInPush();
@@ -238,16 +245,10 @@ export function setupNotificationOpenHandlers() {
           emitCheckInPush();
         }
       }
-      // When fullScreenAction brings the activity to foreground (warm start),
-      // the notification is re-displayed in the foreground context.
-      // This fires emitCheckInPush() in the UI context where the
-      // CheckInContext's onCheckInPush listener is registered.
-      if (type === EventType.DISPLAYED) {
-        const payloadType = detail.notification?.data?.type;
-        if (payloadType === 'checkin') {
-          emitCheckInPush();
-        }
-      }
+      // Note: DELIVERED events are intentionally NOT handled here.
+      // Handling them would re-trigger fetchActiveSession() when the alarm
+      // notification is replaced by the silent follow-up after the alarm
+      // timer expires, causing the in-app countdown to restart mid-flight.
     });
 
     notifee.getInitialNotification().then((initial: any) => {

@@ -9,7 +9,7 @@ router.post('/register', authController.register);
 // Login user
 router.post('/login', authController.login);
 
-// Logout user (requires auth)
-router.post('/logout', authMiddleware, authController.logout);
+// Logout user (accepts a signed expired token so cleanup still succeeds)
+router.post('/logout', authMiddleware.allowExpired, authController.logout);
 
 module.exports = router;

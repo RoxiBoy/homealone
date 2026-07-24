@@ -38,7 +38,11 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
       PENDING_CHECKIN_KEY,
       JSON.stringify({ timestamp: Date.now() }),
     );
-    await showFullScreenCheckInAlert(remoteMessage?.data?.sessionId);
+    const alarmRingSeconds = Number(remoteMessage?.data?.alarmRingSeconds);
+    const alarmRingMs = Number.isFinite(alarmRingSeconds)
+      ? alarmRingSeconds * 1000
+      : undefined;
+    await showFullScreenCheckInAlert(remoteMessage?.data?.sessionId, { alarmRingMs });
     console.log('[index][bg-message] local full-screen check-in alert displayed');
   }
 });

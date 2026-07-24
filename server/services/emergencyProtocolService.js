@@ -9,6 +9,7 @@ const {
   clearCheckInSchedule,
   hasActiveSubscription,
 } = require('./subscriptionAccessService');
+const { isMonitoringSessionActive } = require('./authSessionService');
 async function initiateEmergencyProtocol({
   sessionId,
   userId,
@@ -81,6 +82,26 @@ async function initiateEmergencyProtocol({
       escalated: true,
       session,
       reason: 'user-not-found',
+    };
+  }
+
+  if (!isMonitoringSessionActive(user, now)) {
+    session.status = 'expired';
+    session.resolutionReason = user.loggedOutAt ? 'user_logout' : 'token_expired';
+    session.resolvedAt = now;
+    await session.save();
+
+    clearCheckInSchedule(user);
+    user.fcmToken = null;
+    await user.save();
+
+    console.log(`${logPrefix} stopped before notifications reason=monitoring-session-inactive`);
+    return {
+      ok: true,
+      escalated: false,
+      session,
+      user,
+      reason: 'monitoring-session-inactive',
     };
   }
 

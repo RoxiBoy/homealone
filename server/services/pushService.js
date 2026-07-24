@@ -34,23 +34,32 @@ async function sendCheckInNotification(user, session) {
   const url = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
   const nowMs = Date.now();
   const deadlineMs = session?.responseDeadline ? new Date(session.responseDeadline).getTime() : nowMs + 2 * 60 * 1000;
-  const secondsUntilDeadline = Math.max(30, Math.round((deadlineMs - nowMs) / 1000));
+  const secondsUntilDeadline = Math.max(1, Math.round((deadlineMs - nowMs) / 1000));
   // Keep message alive long enough to survive short doze delays.
   const ttlSeconds = Math.max(120, Math.min(secondsUntilDeadline + 120, 1800));
+  const configuredAlarmRingSeconds = Number(process.env.CHECKIN_ALARM_RING_SECONDS);
+  const alarmRingSeconds = Math.max(
+    10,
+    Math.min(
+      Number.isFinite(configuredAlarmRingSeconds)
+        ? configuredAlarmRingSeconds
+        : secondsUntilDeadline,
+      120,
+    ),
+  );
 
   const body = {
     message: {
       token: user.fcmToken,
-      notification: {
-        title: 'HomeAlone check-in',
-        body: 'Are you okay? Tap to respond now.',
-      },
+      // Data-only: no notification payload so Android delivers to the background
+      // handler, which displays the full-screen alarm with proper sound/vibration.
       data: {
         type: 'checkin',
         sessionId: session._id.toString(),
         alertMode: 'full_screen',
         title: 'HomeAlone check-in',
         body: 'Are you okay? Tap to respond now.',
+        alarmRingSeconds: String(alarmRingSeconds),
       },
       android: {
         priority: 'HIGH',
@@ -58,7 +67,7 @@ async function sendCheckInNotification(user, session) {
         direct_boot_ok: true,
         collapse_key: 'homealone-checkin',
         notification: {
-          channel_id: 'checkin-alerts-alarm-v3',
+          channel_id: 'checkin-alerts-alarm-v4',
           sound: 'alarm',
           priority: 'PRIORITY_MAX',
           visibility: 'PUBLIC',
@@ -162,7 +171,7 @@ async function sendTestNotification(user) {
       android: {
         priority: 'HIGH',
         notification: {
-          channel_id: 'checkin-alerts-alarm-v2',
+          channel_id: 'checkin-alerts-alarm-v4',
           sound: 'alarm',
           visibility: 'PUBLIC',
           notification_priority: 'PRIORITY_MAX',

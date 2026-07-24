@@ -22,6 +22,8 @@ const checkInSessionSchema = new mongoose.Schema(
         'activity_reset',
         'sleep_window',
         'suppressed',
+        'user_logout',
+        'token_expired',
       ],
       default: null,
     },

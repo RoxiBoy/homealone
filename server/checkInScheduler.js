@@ -8,12 +8,11 @@ const {
   clearCheckInSchedule,
   hasActiveSubscription,
 } = require('./services/subscriptionAccessService');
+const { isMonitoringSessionActive } = require('./services/authSessionService');
+const { GRACE_PERIOD_MS } = require('./config/constants');
 
 const SCHEDULER_INTERVAL_MS = 5000; // run every 5 seconds
-// Grace period (ms) added beyond responseDeadline before the scheduler escalates
-// to emergency. Works together with the client-side overdue window so that a user
-// who just missed the countdown can still respond before contacts are notified.
-const GRACE_PERIOD_MS = 30_000;
+// Grace period (ms) added beyond responseDeadline before scheduler escalation.
 const parsedActiveStateFreshMs = Number(process.env.ACTIVE_STATE_FRESH_MS);
 const ACTIVE_STATE_FRESH_MS =
   Number.isFinite(parsedActiveStateFreshMs) && parsedActiveStateFreshMs > 0
@@ -45,6 +44,46 @@ async function schedulerTick() {
       },
       { $set: { isActive: false } },
     ).exec();
+
+    const expiredAuthUsers = await User.find({
+      checkInStatus: { $ne: 'emergency' },
+      loggedOutAt: null,
+      authSessionExpiresAt: { $ne: null, $lte: now },
+      $or: [
+        { nextCheckInAt: { $ne: null } },
+        { fcmToken: { $ne: null } },
+        { checkInStatus: 'pending' },
+      ],
+    }).exec();
+
+    for (const user of expiredAuthUsers) {
+      try {
+        const pendingSession = await CheckInSession.findOne({
+          user: user._id,
+          status: 'pending',
+        })
+          .sort({ createdAt: -1 })
+          .exec();
+
+        if (pendingSession) {
+          pendingSession.status = 'expired';
+          pendingSession.resolutionReason = 'token_expired';
+          pendingSession.resolvedAt = now;
+          await pendingSession.save();
+        }
+
+        clearCheckInSchedule(user);
+        user.fcmToken = null;
+        user.loggedOutAt = now;
+        await user.save();
+      } catch (err) {
+        console.error(
+          '[CheckInScheduler] Error clearing expired auth session for user',
+          user._id.toString(),
+          err,
+        );
+      }
+    }
 
     const graceCutoff = new Date(now.getTime() - GRACE_PERIOD_MS);
     const overdueSessions = await CheckInSession.find({
@@ -90,6 +129,27 @@ async function schedulerTick() {
           }
 
           clearCheckInSchedule(user);
+          await user.save();
+          continue;
+        }
+
+        if (!isMonitoringSessionActive(user, now)) {
+          const pendingSession = await CheckInSession.findOne({
+            user: user._id,
+            status: 'pending',
+          })
+            .sort({ createdAt: -1 })
+            .exec();
+
+          if (pendingSession) {
+            pendingSession.status = 'expired';
+            pendingSession.resolutionReason = user.loggedOutAt ? 'user_logout' : 'token_expired';
+            pendingSession.resolvedAt = now;
+            await pendingSession.save();
+          }
+
+          clearCheckInSchedule(user);
+          user.fcmToken = null;
           await user.save();
           continue;
         }
@@ -148,6 +208,11 @@ async function schedulerTick() {
     const dueUsers = await User.find({
       checkInStatus: { $ne: 'emergency' },
       nextCheckInAt: { $ne: null, $lte: now },
+      loggedOutAt: null,
+      $or: [
+        { authSessionExpiresAt: null },
+        { authSessionExpiresAt: { $gt: now } },
+      ],
     }).exec();
 
     if (!dueUsers.length) {
@@ -167,6 +232,17 @@ async function schedulerTick() {
             user._id.toString(),
           );
           clearCheckInSchedule(user);
+          await user.save();
+          continue;
+        }
+
+        if (!isMonitoringSessionActive(user, now)) {
+          console.log(
+            '[CheckInScheduler] Monitoring session inactive - clearing scheduled check-in for user',
+            user._id.toString(),
+          );
+          clearCheckInSchedule(user);
+          user.fcmToken = null;
           await user.save();
           continue;
         }

@@ -426,26 +426,30 @@ exports.resetCheckInWindow = async (req, res) => {
       .sort({ createdAt: -1 })
       .exec();
 
+    if (pending) {
+      console.log(
+        `${logPrefix} ignore reason=pending-checkin-active sessionId=${pending._id.toString()} responseDeadline=${pending.responseDeadline.toISOString()}`,
+      );
+      return res.status(200).json({
+        ok: false,
+        ignored: true,
+        reason: 'pending-checkin-active',
+        requestId,
+      });
+    }
+
     const previousNextCheckInAt = user.nextCheckInAt ? new Date(user.nextCheckInAt) : null;
     const proposedNextCheckInAt = new Date(now.getTime() + intervalMs);
-
-    if (pending) {
-      pending.status = 'ok';
-      pending.resolutionReason = 'activity_reset';
-      pending.resolvedAt = now;
-      await pending.save();
-      user.checkInStatus = 'ok';
-      user.lastCheckIn = now;
-      console.log(
-        `${logPrefix} resolved pending session from activity sessionId=${pending._id.toString()} responseDeadline=${pending.responseDeadline.toISOString()}`,
-      );
-    }
 
     user.nextCheckInAt = proposedNextCheckInAt;
     user.checkInHardDeadlineAt = new Date(proposedNextCheckInAt.getTime() + getHardDeadlineMs());
     if (typeof lastTimeUsed === 'number') {
       user.lastUsageResetAt = new Date(lastTimeUsed);
     }
+    // Keep isActive/lastActiveAt fresh so the scheduler knows the user is
+    // actively using the app and won't create unnecessary check-in sessions.
+    user.isActive = true;
+    user.lastActiveAt = now;
     await user.save();
     console.log(
       `${logPrefix} success nextCheckInAtUpdated from=${

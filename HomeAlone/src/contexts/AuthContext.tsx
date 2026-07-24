@@ -15,6 +15,7 @@ import {
   ensureUsageAccessOrPrompt,
   runActivityResetCheck,
 } from '../services/activityResetWorker';
+import { clearFullScreenCheckInAlert } from '../services/fullScreenCheckIn';
 
 export type AuthUser = {
   id: string;
@@ -182,6 +183,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     setNotificationsEnabled(null);
+    lastReportedActiveRef.current = null;
+    await clearFullScreenCheckInAlert();
 
     await Promise.all([
       AsyncStorage.removeItem(AUTH_TOKEN_KEY),
@@ -284,7 +287,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log(`[AuthContext][activity] computed intervalMs=${intervalMs} pollMs=${pollMs}`);
 
     const syncActivityState = async (active: boolean) => {
-      if (lastReportedActiveRef.current === active) {
+      // Always report active=true to keep lastActiveAt fresh on the server.
+      // Only skip redundant reports for active=false.
+      if (!active && lastReportedActiveRef.current === false) {
         console.log(`[AuthContext][activity] sync skip unchanged active=${active}`);
         return;
       }

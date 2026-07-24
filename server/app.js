@@ -15,6 +15,7 @@ const tipRoutes = require('./routes/tipRoutes');
 const checkInSessionRoutes = require('./routes/checkInSessionRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const { apiRateLimiter, authRateLimiter } = require('./middleware/rateLimiter');
 
 // Initialize express app
 const app = express();
@@ -25,6 +26,9 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
+app.use('/api/auth/login', authRateLimiter);
+app.use('/api/auth/register', authRateLimiter);
+app.use('/api', apiRateLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);

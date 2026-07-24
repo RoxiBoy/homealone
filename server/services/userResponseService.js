@@ -22,6 +22,9 @@ function buildUserResponse(user, now = new Date()) {
 
   const raw = typeof user.toObject === 'function' ? user.toObject() : { ...user };
   delete raw.password;
+  delete raw.authTokenVersion;
+  delete raw.authSessionExpiresAt;
+  delete raw.loggedOutAt;
 
   const effectiveState = getEffectiveDndState(raw, now);
   const rewardCents = getReferralRewardCents(raw.referralStats);

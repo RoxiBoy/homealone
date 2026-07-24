@@ -11,6 +11,10 @@ const {
   clearCheckInSchedule,
   hasActiveSubscription,
 } = require('../services/subscriptionAccessService');
+const {
+  getAuthSessionExpiresAt,
+  getJwtExpiresIn,
+} = require('../services/authSessionService');
 
 // Register a new user
 exports.register = async (req, res) => {
@@ -121,6 +125,11 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    const now = new Date();
+    user.loggedOutAt = null;
+    user.authSessionExpiresAt = getAuthSessionExpiresAt(now);
+    user.authTokenVersion = Number(user.authTokenVersion || 0);
+
     // Ensure the user has a nextCheckInAt scheduled (server-driven timer)
     try {
       await ensureReferralCode(user);
@@ -129,7 +138,6 @@ exports.login = async (req, res) => {
         clearCheckInSchedule(user);
         await user.save();
       } else if (user.checkInStatus !== 'emergency' && user.dnd !== true) {
-        const now = new Date();
         // If nothing scheduled yet or the scheduled time is in the past, schedule a new one.
         if (!user.nextCheckInAt || user.nextCheckInAt <= now) {
           const result = armCheckInWindowRespectingSleep(user, now);
@@ -151,6 +159,10 @@ exports.login = async (req, res) => {
       console.warn('[authController.login] Failed to schedule nextCheckInAt on login', scheduleErr);
     }
 
+    if (user.isModified()) {
+      await user.save();
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       { 
@@ -159,9 +171,10 @@ exports.login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role || 'user',
+        tokenVersion: Number(user.authTokenVersion || 0),
       },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '7d' }
+      process.env.JWT_SECRET,
+      { expiresIn: getJwtExpiresIn() }
     );
 
     // Return user info and token
@@ -185,6 +198,8 @@ exports.logout = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const now = new Date();
+
     // Expire any pending check-in session
     const pendingSession = await CheckInSession.findOne({
       user: user._id,
@@ -196,11 +211,14 @@ exports.logout = async (req, res) => {
     if (pendingSession) {
       pendingSession.status = 'expired';
       pendingSession.resolutionReason = 'user_logout';
-      pendingSession.resolvedAt = new Date();
+      pendingSession.resolvedAt = now;
       await pendingSession.save();
     }
 
     // Clear scheduling and push state so the scheduler won't fire new check-ins
+    user.authTokenVersion = Number(user.authTokenVersion || 0) + 1;
+    user.authSessionExpiresAt = null;
+    user.loggedOutAt = now;
     user.nextCheckInAt = null;
     user.checkInHardDeadlineAt = null;
     user.checkInStatus = 'ok';

@@ -59,6 +59,19 @@ const userSchema = new mongoose.Schema(
         type: String,
         default: null,
     },
+    authTokenVersion: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    authSessionExpiresAt: {
+        type: Date,
+        default: null,
+    },
+    loggedOutAt: {
+        type: Date,
+        default: null,
+    },
     age: {
         type: Number,
         required: true,
