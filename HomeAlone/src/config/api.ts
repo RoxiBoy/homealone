@@ -1,6 +1,6 @@
-export const API_BASE_URL = 'http://3.27.13.168:3000/api'; // For deployment testing with Android Studio Emulator
+// export const API_BASE_URL = 'http://3.27.255.131:3000/api'; // For deployment testing with Android Studio Emulator
 // export const API_BASE_URL = 'http://127.0.0.1:3000/api'; // For local testing with Real Device
-// export const API_BASE_URL = 'http://10.0.2.2:3000/api'
+export const API_BASE_URL = 'http://10.0.2.2:3000/api'
 export type ApiFetchOptions = RequestInit & {
   token?: string | null;
 };

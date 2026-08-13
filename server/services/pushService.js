@@ -66,15 +66,14 @@ async function sendCheckInNotification(user, session) {
         ttl: `${ttlSeconds}s`,
         direct_boot_ok: true,
         collapse_key: 'homealone-checkin',
-        notification: {
-          channel_id: 'checkin-alerts-alarm-v4',
-          sound: 'alarm',
-          priority: 'PRIORITY_MAX',
-          visibility: 'PUBLIC',
-          notification_priority: 'PRIORITY_MAX',
-          default_vibrate_timings: true,
-          default_light_settings: true,
-        },
+        // notification: {
+        //   channel_id: 'checkin-alerts-alarm-v4',
+        //   sound: 'alarm',
+        //   visibility: 'PUBLIC',
+        //   notification_priority: 'PRIORITY_MAX',
+        //   default_vibrate_timings: true,
+        //   default_light_settings: true,
+        // },
       },
     },
   };
