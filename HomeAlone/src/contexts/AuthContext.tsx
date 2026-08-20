@@ -374,12 +374,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         startPolling();
       } else {
         stopPolling();
-        runActivityResetCheck({
-          tokenOverride: token,
-          source: `auth-appstate-${state}`,
-        }).catch(e => {
-          console.log('[AuthContext] Background transition reset check failed', e);
-        });
         syncActivityState(false).catch(e => {
           console.log('[AuthContext] Failed to sync inactive state on AppState change', e);
         });

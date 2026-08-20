@@ -28,12 +28,6 @@ messaging().setBackgroundMessageHandler(async remoteMessage => {
     }),
   );
   if (type === 'checkin') {
-    // If server accidentally sends notification+data, Android may auto-display once.
-    // Skip local display in that case to avoid duplicate alerts.
-    if (remoteMessage?.notification) {
-      console.log('[index][bg-message] skipping local full-screen (notification payload already present)');
-      return;
-    }
     await AsyncStorage.setItem(
       PENDING_CHECKIN_KEY,
       JSON.stringify({ timestamp: Date.now() }),

@@ -51,8 +51,18 @@ async function sendCheckInNotification(user, session) {
   const body = {
     message: {
       token: user.fcmToken,
-      // Data-only: no notification payload so Android delivers to the background
-      // handler, which displays the full-screen alarm with proper sound/vibration.
+      // Data-only: Android delivers to the background handler which shows
+      // the full-screen alarm. Works even when app is killed (Firebase
+      // cold-starts the process). HIGH priority ensures delivery through Doze.
+      //
+      // Alternative: notification+data FCM guarantees Android always displays
+      // something, but when process is dead it shows a heads-up notification
+      // instead of a full-screen alarm. Uncomment below to use that approach.
+      //
+      // notification: {
+      //   title: 'HomeAlone check-in',
+      //   body: 'Are you okay? Tap to respond now.',
+      // },
       data: {
         type: 'checkin',
         sessionId: session._id.toString(),
