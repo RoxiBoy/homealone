@@ -334,14 +334,14 @@ exports.resetCheckInWindow = async (req, res) => {
   const logPrefix = `[userController.resetCheckInWindow][${requestId}]`;
 
   try {
-    const { lastTimeUsed, thresholdMs, packageName, forceActive, source } = req.body || {};
+    const { packageName, totalTimeInForeground, polledAt, forceActive, source } = req.body || {};
     const now = new Date();
     console.log(
       `${logPrefix} start userId=${req.userId} source=${source || 'unknown'} packageName=${
         packageName || 'unknown'
-      } forceActive=${Boolean(forceActive)} now=${now.toISOString()} lastTimeUsed=${
-        typeof lastTimeUsed === 'number' ? new Date(lastTimeUsed).toISOString() : 'n/a'
-      } thresholdMs=${typeof thresholdMs === 'number' ? thresholdMs : 'n/a'}`,
+      } forceActive=${Boolean(forceActive)} now=${now.toISOString()} totalTimeInForeground=${
+        typeof totalTimeInForeground === 'number' ? totalTimeInForeground : 'n/a'
+      } polledAt=${typeof polledAt === 'number' ? new Date(polledAt).toISOString() : 'n/a'}`,
     );
 
     const user = await User.findById(req.userId).select('-password');
@@ -395,27 +395,18 @@ exports.resetCheckInWindow = async (req, res) => {
       `${logPrefix} interval computed intervalMs=${intervalMs} checkInIntervalHours=${user.checkInIntervalHours}`,
     );
 
-    // Optional guardrail from client-reported usage snapshot.
-    if (typeof lastTimeUsed === 'number' && typeof thresholdMs === 'number') {
-      const ageMs = now.getTime() - lastTimeUsed;
-      console.log(`${logPrefix} usage recency ageMs=${ageMs} thresholdMs=${thresholdMs}`);
-      if (ageMs > thresholdMs) {
-        console.log(`${logPrefix} ignore reason=usage-not-recent`);
-        return res
-          .status(200)
-          .json({ ok: false, ignored: true, reason: 'usage-not-recent', requestId });
-      }
-    }
-
-    if (typeof lastTimeUsed === 'number' && user.lastUsageResetAt && !forceActive) {
-      const lastResetMs = user.lastUsageResetAt.getTime();
-      if (lastTimeUsed <= lastResetMs) {
+    // Liveness guard: reject stale requests where lastActiveAt is too old,
+    // independent of client-supplied timestamps.
+    const LIVENESS_THRESHOLD_MS = 40 * 60 * 1000; // 40 minutes
+    if (!forceActive && user.lastActiveAt) {
+      const idleMs = now.getTime() - user.lastActiveAt.getTime();
+      if (idleMs > LIVENESS_THRESHOLD_MS) {
         console.log(
-          `${logPrefix} ignore reason=usage-not-new lastTimeUsed=${new Date(lastTimeUsed).toISOString()} lastUsageResetAt=${user.lastUsageResetAt.toISOString()}`,
+          `${logPrefix} ignore reason=stale-request idleMs=${idleMs} thresholdMs=${LIVENESS_THRESHOLD_MS}`,
         );
         return res
           .status(200)
-          .json({ ok: false, ignored: true, reason: 'usage-not-new', requestId });
+          .json({ ok: false, ignored: true, reason: 'stale-request', requestId });
       }
     }
 
@@ -443,9 +434,6 @@ exports.resetCheckInWindow = async (req, res) => {
 
     user.nextCheckInAt = proposedNextCheckInAt;
     user.checkInHardDeadlineAt = new Date(proposedNextCheckInAt.getTime() + getHardDeadlineMs());
-    if (typeof lastTimeUsed === 'number') {
-      user.lastUsageResetAt = new Date(lastTimeUsed);
-    }
     // Keep isActive/lastActiveAt fresh so the scheduler knows the user is
     // actively using the app and won't create unnecessary check-in sessions.
     user.isActive = true;

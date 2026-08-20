@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import BackgroundFetch, { HeadlessEvent } from 'react-native-background-fetch';
 import { apiFetch } from '../config/api';
 import {
+  getForegroundUsageWithTime,
   getMostRecentForegroundUsage,
   getRecentForegroundUsage,
   hasUsageAccess,
@@ -12,9 +13,8 @@ import {
 const AUTH_TOKEN_KEY = '@homealone/token';
 const USAGE_ACCESS_PROMPTED_KEY = '@homealone/usage-access-prompted';
 const LAST_USAGE_RESET_KEY = '@homealone/last-usage-reset-ms';
+const FG_SNAPSHOT_KEY = '@homealone/last-foreground-snapshot';
 const FAST_TASK_ID = 'homealone-activity-reset-fast';
-export const ACTIVE_USAGE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-const BACKGROUND_USAGE_THRESHOLD_MS = 20 * 60 * 1000; // 20 minutes for delayed background callbacks
 const BACKGROUND_MIN_GAP_MS = 45 * 1000;
 const ATTEMPT_INFLIGHT_TIMEOUT_MS = 15 * 1000;
 const NOISE_PACKAGE_PATTERNS = [
@@ -30,27 +30,8 @@ let workerConfigured = false;
 let lastBackgroundAttemptAtMs = 0;
 let attemptInFlight = false;
 let attemptInFlightStartedAtMs = 0;
-let lastUsageResetMsCache: number | null = null;
-let lastUsageResetMsLoaded = false;
-
-async function getLastUsageResetMs(): Promise<number | null> {
-  if (lastUsageResetMsLoaded) return lastUsageResetMsCache;
-  try {
-    const raw = await AsyncStorage.getItem(LAST_USAGE_RESET_KEY);
-    const parsed = raw ? Number(raw) : NaN;
-    lastUsageResetMsCache = Number.isFinite(parsed) ? parsed : null;
-  } catch (e) {
-    console.log('[activityResetWorker] failed to read last usage reset', e);
-    lastUsageResetMsCache = null;
-  } finally {
-    lastUsageResetMsLoaded = true;
-  }
-  return lastUsageResetMsCache;
-}
 
 async function setLastUsageResetMs(value: number | null): Promise<void> {
-  lastUsageResetMsCache = value;
-  lastUsageResetMsLoaded = true;
   try {
     if (value == null) {
       await AsyncStorage.removeItem(LAST_USAGE_RESET_KEY);
@@ -59,6 +40,43 @@ async function setLastUsageResetMs(value: number | null): Promise<void> {
     }
   } catch (e) {
     console.log('[activityResetWorker] failed to persist last usage reset', e);
+  }
+}
+
+type ForegroundSnapshot = {
+  packageName: string;
+  totalTimeInForeground: number;
+  polledAt: number;
+};
+
+let fgSnapshotCache: ForegroundSnapshot | null = null;
+let fgSnapshotLoaded = false;
+
+async function getLastForegroundSnapshot(): Promise<ForegroundSnapshot | null> {
+  if (fgSnapshotLoaded) return fgSnapshotCache;
+  try {
+    const raw = await AsyncStorage.getItem(FG_SNAPSHOT_KEY);
+    fgSnapshotCache = raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.log('[activityResetWorker] failed to read foreground snapshot', e);
+    fgSnapshotCache = null;
+  } finally {
+    fgSnapshotLoaded = true;
+  }
+  return fgSnapshotCache;
+}
+
+async function setLastForegroundSnapshot(value: ForegroundSnapshot | null): Promise<void> {
+  fgSnapshotCache = value;
+  fgSnapshotLoaded = true;
+  try {
+    if (value == null) {
+      await AsyncStorage.removeItem(FG_SNAPSHOT_KEY);
+    } else {
+      await AsyncStorage.setItem(FG_SNAPSHOT_KEY, JSON.stringify(value));
+    }
+  } catch (e) {
+    console.log('[activityResetWorker] failed to persist foreground snapshot', e);
   }
 }
 
@@ -84,9 +102,6 @@ export async function runActivityResetCheck(
   console.log(`[activityResetWorker][${attemptId}] start source=${source} forceActive=${forceActive}`);
 
   const isBackgroundSource = source.startsWith('background-fetch:') || source.startsWith('headless:');
-  const thresholdMs = isBackgroundSource
-    ? BACKGROUND_USAGE_THRESHOLD_MS
-    : ACTIVE_USAGE_THRESHOLD_MS;
 
   if (isBackgroundSource) {
     const nowMs = Date.now();
@@ -131,113 +146,105 @@ export async function runActivityResetCheck(
     const moduleAvailable = hasUsageModule();
     console.log(`[activityResetWorker][${attemptId}] usageModuleAvailable=${moduleAvailable}`);
 
-    let snapshot: Awaited<ReturnType<typeof getMostRecentForegroundUsage>> | null = null;
     let chosenSnapshot: Awaited<ReturnType<typeof getMostRecentForegroundUsage>> | null = null;
-    let usageActive = false;
-    let usageRecent = false;
+    let genuinelyActiveNow = false;
     let permissionGranted = false;
-    let usageIsNew = true;
 
     if (moduleAvailable) {
       permissionGranted = await hasUsageAccess();
       console.log(`[activityResetWorker][${attemptId}] usageAccessGranted=${permissionGranted}`);
 
       if (permissionGranted) {
-        snapshot = await getMostRecentForegroundUsage();
-        chosenSnapshot = snapshot;
-        if (snapshot?.lastTimeUsed) {
-          const now = Date.now();
-          const ageMs = now - snapshot.lastTimeUsed;
-          const packageName = (snapshot.packageName || '').toLowerCase();
+        const fgSnapshot = await getForegroundUsageWithTime();
+        const prevSnapshot = await getLastForegroundSnapshot();
+
+        if (fgSnapshot && fgSnapshot.packageName) {
+          const packageName = fgSnapshot.packageName.toLowerCase();
           const isNoisePackage = NOISE_PACKAGE_PATTERNS.some(pattern => packageName.includes(pattern));
-          const lastResetMs = await getLastUsageResetMs();
-          usageIsNew = !(lastResetMs && snapshot.lastTimeUsed <= lastResetMs);
-          if (!usageIsNew) {
-            console.log(
-              `[activityResetWorker][${attemptId}] usage not new lastTimeUsed=${snapshot.lastTimeUsed} lastResetMs=${lastResetMs}`,
-            );
-          }
-          usageRecent = !isNoisePackage && ageMs < thresholdMs;
-          usageActive = usageRecent && usageIsNew;
-          console.log(
-            `[activityResetWorker][${attemptId}] usageSnapshot package=${snapshot.packageName || 'n/a'} lastTimeUsed=${new Date(
-              snapshot.lastTimeUsed,
-            ).toISOString()} ageMs=${ageMs} thresholdMs=${thresholdMs} isNoisePackage=${isNoisePackage} usageRecent=${usageRecent} usageIsNew=${usageIsNew} usageActive=${usageActive}`,
-          );
+
           if (isNoisePackage) {
-            console.log(`[activityResetWorker][${attemptId}] package treated as idle/noise`);
+            console.log(`[activityResetWorker][${attemptId}] primary package is noise: ${fgSnapshot.packageName}`);
             const recent = await getRecentForegroundUsage(3);
-            if (recent.length) {
-              console.log(
-                `[activityResetWorker][${attemptId}] recentUsageTop3=${JSON.stringify(recent)}`,
-              );
-              const fallback = recent.find(entry => {
-                const pkg = (entry.packageName || '').toLowerCase();
-                const noise = NOISE_PACKAGE_PATTERNS.some(pattern => pkg.includes(pattern));
-                const entryAgeMs = now - entry.lastTimeUsed;
-                return !noise && entryAgeMs < thresholdMs;
-              });
-              if (fallback) {
-                chosenSnapshot = fallback;
-                const fallbackAgeMs = now - fallback.lastTimeUsed;
-                const fallbackPackage = (fallback.packageName || '').toLowerCase();
-                const fallbackNoise = NOISE_PACKAGE_PATTERNS.some(pattern =>
-                  fallbackPackage.includes(pattern),
-                );
-                const fallbackUsageIsNew = !(lastResetMs && fallback.lastTimeUsed <= lastResetMs);
-                usageRecent = !fallbackNoise && fallbackAgeMs < thresholdMs;
-                usageIsNew = fallbackUsageIsNew;
-                usageActive = usageRecent && usageIsNew;
+            const fallback = recent.find(entry => {
+              const pkg = (entry.packageName || '').toLowerCase();
+              return !NOISE_PACKAGE_PATTERNS.some(pattern => pkg.includes(pattern));
+            });
+            if (fallback) {
+              chosenSnapshot = fallback;
+              if (!prevSnapshot) {
+                genuinelyActiveNow = true;
+                console.log(`[activityResetWorker][${attemptId}] fallback first-tick — treating as active`);
+              } else if (prevSnapshot.packageName === fallback.packageName) {
+                const deltaMs = (fallback.totalTimeInForeground || 0) - prevSnapshot.totalTimeInForeground;
+                genuinelyActiveNow = deltaMs > 0;
                 console.log(
-                  `[activityResetWorker][${attemptId}] fallbackSnapshot package=${fallback.packageName} lastTimeUsed=${new Date(
-                    fallback.lastTimeUsed,
-                  ).toISOString()} ageMs=${fallbackAgeMs} usageRecent=${usageRecent} usageIsNew=${fallbackUsageIsNew}`,
+                  `[activityResetWorker][${attemptId}] fallback delta pkg=${fallback.packageName} prev=${prevSnapshot.totalTimeInForeground} current=${fallback.totalTimeInForeground} deltaMs=${deltaMs} active=${genuinelyActiveNow}`,
+                );
+              } else {
+                genuinelyActiveNow = true;
+                console.log(
+                  `[activityResetWorker][${attemptId}] fallback app-switch from ${prevSnapshot.packageName} to ${fallback.packageName} — treating as active`,
                 );
               }
+            } else {
+              console.log(`[activityResetWorker][${attemptId}] no non-noise fallback found`);
             }
+          } else {
+            chosenSnapshot = fgSnapshot;
+            if (!prevSnapshot) {
+              genuinelyActiveNow = true;
+              console.log(`[activityResetWorker][${attemptId}] first tick, no previous snapshot — treating as active`);
+            } else if (prevSnapshot.packageName !== fgSnapshot.packageName) {
+              genuinelyActiveNow = true;
+              console.log(
+                `[activityResetWorker][${attemptId}] app-switch from ${prevSnapshot.packageName} to ${fgSnapshot.packageName} — treating as active`,
+              );
+            } else {
+              const deltaMs = fgSnapshot.totalTimeInForeground - prevSnapshot.totalTimeInForeground;
+              genuinelyActiveNow = deltaMs > 0;
+              console.log(
+                `[activityResetWorker][${attemptId}] delta pkg=${fgSnapshot.packageName} prev=${prevSnapshot.totalTimeInForeground} current=${fgSnapshot.totalTimeInForeground} deltaMs=${deltaMs} active=${genuinelyActiveNow}`,
+              );
+            }
+
+            await setLastForegroundSnapshot({
+              packageName: fgSnapshot.packageName,
+              totalTimeInForeground: fgSnapshot.totalTimeInForeground,
+              polledAt: Date.now(),
+            });
+          }
+
+          if (chosenSnapshot && chosenSnapshot !== fgSnapshot && chosenSnapshot.packageName !== fgSnapshot?.packageName) {
+            await setLastForegroundSnapshot({
+              packageName: chosenSnapshot.packageName,
+              totalTimeInForeground: (chosenSnapshot as any).totalTimeInForeground || 0,
+              polledAt: Date.now(),
+            });
           }
         } else {
-          console.log(`[activityResetWorker][${attemptId}] usageSnapshot missing or has no lastTimeUsed`);
+          console.log(`[activityResetWorker][${attemptId}] no foreground usage snapshot available`);
         }
       }
     }
 
-    const active = forceActive || usageRecent;
-    const shouldReset = usageActive || (forceActive && usageRecent);
+    const active = forceActive || genuinelyActiveNow;
+    const shouldReset = genuinelyActiveNow || forceActive;
     console.log(
-      `[activityResetWorker][${attemptId}] activeDecision forceActive=${forceActive} usageRecent=${usageRecent} usageIsNew=${usageIsNew} active=${active} shouldReset=${shouldReset}`,
+      `[activityResetWorker][${attemptId}] activeDecision forceActive=${forceActive} genuinelyActiveNow=${genuinelyActiveNow} active=${active} shouldReset=${shouldReset}`,
     );
 
     if (!shouldReset) {
       if (!moduleAvailable) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=usage-module-unavailable`);
-        return {
-          active,
-          resetSent: false,
-          reason: 'usage-module-unavailable',
-          attemptId,
-        };
+        return { active, resetSent: false, reason: 'usage-module-unavailable', attemptId };
       }
       if (!permissionGranted) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=usage-access-not-granted`);
-        return {
-          active,
-          resetSent: false,
-          reason: 'usage-access-not-granted',
-          attemptId,
-        };
+        return { active, resetSent: false, reason: 'usage-access-not-granted', attemptId };
       }
-      if (!snapshot || !snapshot.lastTimeUsed) {
+      if (!fgSnapshot) {
         console.log(`[activityResetWorker][${attemptId}] abort reason=no-usage-snapshot`);
         return { active, resetSent: false, reason: 'no-usage-snapshot', attemptId };
-      }
-      if (!usageIsNew) {
-        console.log(`[activityResetWorker][${attemptId}] abort reason=usage-not-new`);
-        return { active, resetSent: false, reason: 'usage-not-new', attemptId };
-      }
-      if (!usageRecent) {
-        console.log(`[activityResetWorker][${attemptId}] abort reason=idle`);
-        return { active, resetSent: false, reason: 'idle', attemptId };
       }
       console.log(`[activityResetWorker][${attemptId}] abort reason=idle`);
       return { active, resetSent: false, reason: 'idle', attemptId };
@@ -246,9 +253,9 @@ export async function runActivityResetCheck(
     const payload = {
       requestId: attemptId,
       source,
-      lastTimeUsed: chosenSnapshot?.lastTimeUsed || snapshot?.lastTimeUsed || Date.now(),
-      packageName: chosenSnapshot?.packageName || snapshot?.packageName || 'com.homealone',
-      thresholdMs,
+      packageName: chosenSnapshot?.packageName || 'com.homealone',
+      totalTimeInForeground: (chosenSnapshot as any)?.totalTimeInForeground || 0,
+      polledAt: Date.now(),
       forceActive,
     };
 
@@ -279,9 +286,8 @@ export async function runActivityResetCheck(
         JSON.stringify(response),
       );
 
-      const lastUsageTime = chosenSnapshot?.lastTimeUsed || snapshot?.lastTimeUsed;
-      if (lastUsageTime && (response?.ok === true || response?.ignored === true)) {
-        await setLastUsageResetMs(lastUsageTime);
+      if (response?.ok === true || response?.ignored === true) {
+        await setLastUsageResetMs(Date.now());
       }
 
       return {

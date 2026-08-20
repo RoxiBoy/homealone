@@ -84,6 +84,7 @@ public class UsageModule extends ReactContextBaseJavaModule {
 
       String packageName = null;
       long lastTimeUsed = 0L;
+      long totalTimeInForeground = 0L;
 
       UsageEvents events = usm.queryEvents(start, now);
       UsageEvents.Event event = new UsageEvents.Event();
@@ -113,6 +114,7 @@ public class UsageModule extends ReactContextBaseJavaModule {
             if (stat != null && stat.getLastTimeUsed() > lastTimeUsed) {
               lastTimeUsed = stat.getLastTimeUsed();
               packageName = stat.getPackageName();
+              totalTimeInForeground = stat.getTotalTimeInForeground();
             }
           }
         }
@@ -120,6 +122,7 @@ public class UsageModule extends ReactContextBaseJavaModule {
 
       WritableMap map = Arguments.createMap();
       map.putDouble("lastTimeUsed", (double) lastTimeUsed);
+      map.putDouble("totalTimeInForeground", (double) totalTimeInForeground);
       map.putString("packageName", packageName == null ? "" : packageName);
       map.putBoolean("hasUsageAccess", true);
       Log.d(
@@ -132,6 +135,63 @@ public class UsageModule extends ReactContextBaseJavaModule {
       promise.resolve(map);
     } catch (Exception e) {
       Log.e(TAG, "getMostRecentForegroundUsage failed", e);
+      promise.reject("USAGE_QUERY_FAILED", e);
+    }
+  }
+
+  @ReactMethod
+  public void getForegroundUsageWithTime(Promise promise) {
+    try {
+      if (!hasUsageStatsPermission()) {
+        Log.d(TAG, "getForegroundUsageWithTime denied: usage permission missing");
+        promise.reject("USAGE_ACCESS_NOT_GRANTED", "Usage access permission is not granted");
+        return;
+      }
+
+      long now = System.currentTimeMillis();
+      long start = now - LOOKBACK_MS;
+
+      UsageStatsManager usm =
+        (UsageStatsManager) getReactApplicationContext().getSystemService(Context.USAGE_STATS_SERVICE);
+
+      if (usm == null) {
+        Log.e(TAG, "UsageStatsManager unavailable");
+        promise.reject("USAGE_STATS_UNAVAILABLE", "UsageStatsManager unavailable");
+        return;
+      }
+
+      List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now);
+      String packageName = null;
+      long lastTimeUsed = 0L;
+      long totalTimeInForeground = 0L;
+
+      if (stats != null) {
+        for (UsageStats stat : stats) {
+          if (stat == null) continue;
+          if (stat.getLastTimeUsed() > lastTimeUsed) {
+            lastTimeUsed = stat.getLastTimeUsed();
+            packageName = stat.getPackageName();
+            totalTimeInForeground = stat.getTotalTimeInForeground();
+          }
+        }
+      }
+
+      WritableMap map = Arguments.createMap();
+      map.putString("packageName", packageName == null ? "" : packageName);
+      map.putDouble("lastTimeUsed", (double) lastTimeUsed);
+      map.putDouble("totalTimeInForeground", (double) totalTimeInForeground);
+      Log.d(
+        TAG,
+        "getForegroundUsageWithTime -> package="
+          + (packageName == null ? "" : packageName)
+          + " lastTimeUsed="
+          + lastTimeUsed
+          + " totalTimeInForeground="
+          + totalTimeInForeground
+      );
+      promise.resolve(map);
+    } catch (Exception e) {
+      Log.e(TAG, "getForegroundUsageWithTime failed", e);
       promise.reject("USAGE_QUERY_FAILED", e);
     }
   }
@@ -181,18 +241,19 @@ public class UsageModule extends ReactContextBaseJavaModule {
         }
       }
 
-      if (lastUsedByPackage.isEmpty()) {
-        List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now);
-        if (stats != null) {
-          for (UsageStats stat : stats) {
-            if (stat == null) continue;
-            long ts = stat.getLastTimeUsed();
-            String pkg = stat.getPackageName();
-            Long prev = lastUsedByPackage.get(pkg);
-            if (prev == null || ts > prev) {
-              lastUsedByPackage.put(pkg, ts);
-            }
+      Map<String, Long> fgByPackage = new HashMap<>();
+      List<UsageStats> stats = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, start, now);
+      if (stats != null) {
+        for (UsageStats stat : stats) {
+          if (stat == null) continue;
+          String pkg = stat.getPackageName();
+          long ts = stat.getLastTimeUsed();
+          Long prev = lastUsedByPackage.get(pkg);
+          if (prev == null || ts > prev) {
+            lastUsedByPackage.put(pkg, ts);
           }
+          long existing = fgByPackage.containsKey(pkg) ? fgByPackage.get(pkg) : 0L;
+          fgByPackage.put(pkg, existing + stat.getTotalTimeInForeground());
         }
       }
 
@@ -208,6 +269,7 @@ public class UsageModule extends ReactContextBaseJavaModule {
         WritableMap map = Arguments.createMap();
         map.putString("packageName", entry.getKey());
         map.putDouble("lastTimeUsed", entry.getValue());
+        map.putDouble("totalTimeInForeground", fgByPackage.containsKey(entry.getKey()) ? fgByPackage.get(entry.getKey()) : 0L);
         array.pushMap(map);
       }
 

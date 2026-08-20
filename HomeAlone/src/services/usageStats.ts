@@ -3,6 +3,7 @@ import { NativeModules, Platform } from 'react-native';
 type UsageSnapshot = {
   packageName: string;
   lastTimeUsed: number;
+  totalTimeInForeground: number;
   hasUsageAccess: boolean;
 };
 
@@ -11,6 +12,7 @@ type UsageNativeModule = {
   openUsageAccessSettings: () => void;
   getMostRecentForegroundUsage: () => Promise<UsageSnapshot>;
   getRecentForegroundUsage: (limit: number) => Promise<UsageSnapshot[]>;
+  getForegroundUsageWithTime: () => Promise<UsageSnapshot>;
 };
 
 const usageModule: UsageNativeModule | null =
@@ -68,6 +70,25 @@ export async function getRecentForegroundUsage(limit = 3): Promise<UsageSnapshot
   } catch (error) {
     console.log('[usageStats] getRecentForegroundUsage failed', error);
     return [];
+  }
+}
+
+export async function getForegroundUsageWithTime(): Promise<UsageSnapshot | null> {
+  if (!usageModule) return null;
+  try {
+    const snapshot = await usageModule.getForegroundUsageWithTime();
+    console.log(
+      '[usageStats] fgWithTime',
+      JSON.stringify({
+        packageName: snapshot?.packageName || '',
+        lastTimeUsed: snapshot?.lastTimeUsed || 0,
+        totalTimeInForeground: snapshot?.totalTimeInForeground || 0,
+      }),
+    );
+    return snapshot;
+  } catch (error) {
+    console.log('[usageStats] getForegroundUsageWithTime failed', error);
+    return null;
   }
 }
 
